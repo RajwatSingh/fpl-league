@@ -37,6 +37,15 @@ Two tallies, both computed from data already fetched — no extra API calls.
 
 Ties are shared: if two managers post the same top score, both get the win.
 
+**Monthly standings** use FPL's own calendar-month "phases" (August, September, …
+from `bootstrap-static` → `phases[]`), scored by summing each manager's net
+points across the gameweeks in that phase — again from data already fetched, no
+extra calls. The season-long phase (always named "Overall") is excluded by
+name rather than id, since the API does not guarantee phase 1 stays the
+season. A month is marked `provisional` until its last gameweek is
+`data_checked`, same rule as the gameweek view. `-monthly` on the CLI, a third
+"Monthly" tab in the web UI, and a `monthWins` tally on the season view.
+
 A Bench Boost week cannot win the bench tally. The bench played, so nothing was
 left behind, and `points_on_bench` is 0 — which is the honest answer. Note this
 produces a display that looks contradictory until you know the rule: in GW1 of

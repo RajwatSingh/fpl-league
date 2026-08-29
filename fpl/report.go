@@ -3,6 +3,7 @@ package fpl
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -94,10 +95,12 @@ type ManagerSeason struct {
 	ChipsUsed      []ChipPlay `json:"chipsUsed"`
 
 	// Weekly honours, tallied across every gameweek played so far.
-	GWWins        int   `json:"gwWins"`
-	GWWinWeeks    []int `json:"gwWinWeeks"`
-	BenchWins     int   `json:"benchWins"`
-	BenchWinWeeks []int `json:"benchWinWeeks"`
+	GWWins        int      `json:"gwWins"`
+	GWWinWeeks    []int    `json:"gwWinWeeks"`
+	BenchWins     int      `json:"benchWins"`
+	BenchWinWeeks []int    `json:"benchWinWeeks"`
+	MonthWins     int      `json:"monthWins"`
+	MonthWinNames []string `json:"monthWinNames"`
 }
 
 // Report is everything the CLI renders.
@@ -111,7 +114,29 @@ type Report struct {
 	Events      []Event         `json:"events"`
 	Gameweek    []ManagerGW     `json:"gameweek"`
 	Season      []ManagerSeason `json:"season"`
+	Monthly     []MonthlyPhase  `json:"monthly"`
 	PlayerNames map[int]string  `json:"playerNames"`
+}
+
+// MonthlyPhase is one calendar-month leaderboard (an FPL "phase" other than
+// the season-long Overall one), scored on points already fetched via
+// entry/{id}/history/ - no extra API calls.
+type MonthlyPhase struct {
+	Name       string `json:"name"`
+	StartEvent int    `json:"startEvent"`
+	StopEvent  int    `json:"stopEvent"`
+	// Complete is true once every gameweek in the phase has been played, so
+	// the standings shown cannot still change.
+	Complete  bool         `json:"complete"`
+	Standings []MonthlyRow `json:"standings"`
+}
+
+type MonthlyRow struct {
+	EntryID int    `json:"entryId"`
+	Manager string `json:"manager"`
+	Entry   string `json:"entry"`
+	Points  int    `json:"points"`
+	Won     bool   `json:"won"`
 }
 
 // Options controls how much the report fetches.
@@ -259,6 +284,8 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 	}
 
 	awardWeeklyWins(data, rep)
+	rep.Monthly = monthlyPhases(data, boot.Phases, ev)
+	awardMonthlyWins(rep)
 
 	// Ship names only for the players that actually appear in this response.
 	// The full map is all 622 players and was half the payload, to render a
@@ -278,6 +305,80 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		return rep.Season[i].LeagueRank < rep.Season[j].LeagueRank
 	})
 	return rep, nil
+}
+
+// monthlyPhases scores every non-Overall phase using the per-gameweek net
+// points already present in each manager's history. The season-long phase is
+// excluded by name, since the API does not guarantee its id stays 1.
+func monthlyPhases(data []entryData, phases []Phase, current Event) []MonthlyPhase {
+	var out []MonthlyPhase
+	for _, ph := range phases {
+		if strings.EqualFold(ph.Name, "Overall") {
+			continue
+		}
+		if ph.StartEvent > current.ID {
+			continue // has not started
+		}
+
+		best := 0
+		rows := make([]MonthlyRow, 0, len(data))
+		for _, d := range data {
+			total, played := 0, false
+			for _, h := range d.history.Current {
+				if h.Event >= ph.StartEvent && h.Event <= ph.StopEvent {
+					total += h.Net()
+					played = true
+				}
+			}
+			if !played {
+				continue
+			}
+			rows = append(rows, MonthlyRow{
+				EntryID: d.row.Entry,
+				Manager: d.row.PlayerName,
+				Entry:   d.row.EntryName,
+				Points:  total,
+			})
+			if total > best {
+				best = total
+			}
+		}
+		if len(rows) == 0 {
+			continue
+		}
+		for i := range rows {
+			rows[i].Won = best > 0 && rows[i].Points == best
+		}
+		sort.SliceStable(rows, func(i, j int) bool { return rows[i].Points > rows[j].Points })
+
+		out = append(out, MonthlyPhase{
+			Name:       ph.Name,
+			StartEvent: ph.StartEvent,
+			StopEvent:  ph.StopEvent,
+			Complete:   ph.StopEvent < current.ID || (ph.StopEvent == current.ID && current.DataChecked),
+			Standings:  rows,
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].StartEvent < out[j].StartEvent })
+	return out
+}
+
+// awardMonthlyWins folds the monthly standings back onto each manager's season
+// row, the same way the weekly honours are tallied.
+func awardMonthlyWins(rep *Report) {
+	wins := map[int][]string{}
+	for _, ph := range rep.Monthly {
+		for _, row := range ph.Standings {
+			if row.Won {
+				wins[row.EntryID] = append(wins[row.EntryID], ph.Name)
+			}
+		}
+	}
+	for i := range rep.Season {
+		names := wins[rep.Season[i].EntryID]
+		rep.Season[i].MonthWins = len(names)
+		rep.Season[i].MonthWinNames = names
+	}
 }
 
 // awardWeeklyWins tallies the two weekly honours across every gameweek any

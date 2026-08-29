@@ -25,6 +25,8 @@ func main() {
 		leagueID    = flag.Int("league", defaultLeague, "classic league id (from the FPL league URL)")
 		gw          = flag.Int("gw", 0, "gameweek to report on (default: current)")
 		season      = flag.Bool("season", false, "show season totals instead of a single gameweek")
+		monthly     = flag.Bool("monthly", false, "show monthly (phase) standings instead of a single gameweek")
+		month       = flag.String("month", "", "with -monthly, show only this month (e.g. August); default is all")
 		detail      = flag.Bool("transfers", false, "list each transfer with player names")
 		sortBy      = flag.String("sort", "rank", "sort by: rank, gw, bench, hits, gwrank, wins, benchwins")
 		maxManagers = flag.Int("max", 0, "cap the number of managers fetched (0 = all)")
@@ -84,9 +86,12 @@ func main() {
 		return
 	}
 
-	if *season {
+	switch {
+	case *monthly:
+		printMonthly(rep, *month)
+	case *season:
 		printSeason(rep, *sortBy)
-	} else {
+	default:
 		printGameweek(rep, *sortBy, *detail)
 	}
 	fmt.Fprintf(os.Stderr, "\n(%d managers in %s)\n", len(rep.Gameweek), time.Since(start).Round(time.Millisecond))
@@ -158,6 +163,51 @@ func printTransferDetail(rep *fpl.Report, rows []fpl.ManagerGW) {
 	}
 }
 
+func printMonthly(rep *fpl.Report, month string) {
+	fmt.Printf("%s  —  monthly standings\n", rep.League.Name)
+	if len(rep.Monthly) == 0 {
+		fmt.Println("\n(no month has started yet)")
+		return
+	}
+
+	phases := rep.Monthly
+	if month != "" {
+		phases = nil
+		for _, ph := range rep.Monthly {
+			if strings.EqualFold(ph.Name, month) {
+				phases = append(phases, ph)
+			}
+		}
+		if len(phases) == 0 {
+			names := make([]string, len(rep.Monthly))
+			for i, ph := range rep.Monthly {
+				names[i] = ph.Name
+			}
+			fmt.Printf("\nno such month %q. Available: %s\n", month, strings.Join(names, ", "))
+			return
+		}
+	}
+
+	for _, ph := range phases {
+		status := "provisional"
+		if ph.Complete {
+			status = "final"
+		}
+		fmt.Printf("\n%s (GW%d-%d, %s)\n", ph.Name, ph.StartEvent, ph.StopEvent, status)
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "#\tMANAGER\tTEAM\tPOINTS")
+		for i, r := range ph.Standings {
+			win := ""
+			if r.Won {
+				win = " *"
+			}
+			fmt.Fprintf(w, "%d\t%s\t%s\t%d\n", i+1, trunc(r.Manager, 20)+win, trunc(r.Entry, 20), r.Points)
+		}
+		w.Flush()
+	}
+	fmt.Println("\n* = won that month. A month stays provisional until its last gameweek is finalised.")
+}
+
 func printSeason(rep *fpl.Report, sortBy string) {
 	fmt.Printf("%s  —  season to %s\n\n", rep.League.Name, rep.Event.Name)
 
@@ -165,7 +215,7 @@ func printSeason(rep *fpl.Report, sortBy string) {
 	sortSeason(rows, sortBy)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "#\tMANAGER\tTEAM\tTOTAL\tWINS\tBENCH W\tBENCHED\tHITS\tTF\tBEST GW\tCHIPS USED")
+	fmt.Fprintln(w, "#\tMANAGER\tTEAM\tTOTAL\tWINS\tMONTHS\tBENCH W\tBENCHED\tHITS\tTF\tBEST GW\tCHIPS USED")
 	for _, r := range rows {
 		best := "—"
 		if r.BestGW > 0 {
@@ -175,9 +225,9 @@ func printSeason(rep *fpl.Report, sortBy string) {
 		if r.HitsTotal > 0 {
 			hits = fmt.Sprintf("-%d", r.HitsTotal)
 		}
-		fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%d\t%s\t%s\n",
+		fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%s\t%s\t%s\t%d\t%s\t%d\t%s\t%s\n",
 			r.LeagueRank, trunc(r.Manager, 20), trunc(r.Entry, 18),
-			r.Total, count(r.GWWins), count(r.BenchWins), r.BenchTotal, hits,
+			r.Total, count(r.GWWins), count(r.MonthWins), count(r.BenchWins), r.BenchTotal, hits,
 			r.TransfersTotal, best, chipList(r.ChipsUsed))
 	}
 	w.Flush()

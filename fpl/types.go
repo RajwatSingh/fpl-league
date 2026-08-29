@@ -9,6 +9,17 @@ type Bootstrap struct {
 	Elements []Element `json:"elements"`
 	Teams    []Team    `json:"teams"`
 	Chips    []ChipDef `json:"chips"`
+	Phases   []Phase   `json:"phases"`
+}
+
+// Phase is one monthly (or overall) leaderboard window. The season-long phase
+// is always named "Overall" - callers wanting just the calendar months should
+// filter it out by name rather than assume its id, which is not guaranteed.
+type Phase struct {
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	StartEvent int    `json:"start_event"`
+	StopEvent  int    `json:"stop_event"`
 }
 
 type Event struct {
