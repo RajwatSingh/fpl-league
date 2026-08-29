@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FPL League Rank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Martian+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── Palette ───────────────────────────────────────────────────────────
+   Lifted verbatim from the portfolio's globals.css so the two surfaces
+   read as one system. Neutrals carry a blue-violet cast (hue 285) at low
+   chroma; accents sit at near-constant lightness and are separated by hue
+   angle, each with exactly one job.
+
+   That last property means the accent set is a syntax theme, NOT a chart
+   palette: run through the CVD validator, blue and purple are 0.4 ΔE
+   apart for a deuteranope. So nothing here encodes a value by hue alone.
+   Magnitude uses one hue at varying length (the bench meter); state uses
+   a hue plus a glyph.                                                   */
+:root {
+  --n0: oklch(0.19 0.018 285);
+  --n1: oklch(0.23 0.020 285);
+  --n2: oklch(0.27 0.022 285);
+  --n3: oklch(0.32 0.022 285);
+  --n4: oklch(0.42 0.022 285);  /* hairline: furniture, not signal */
+  --n5: oklch(0.594 0.020 285); /* interactive edges, inputs */
+  --n6: oklch(0.74 0.016 285);
+  --n7: oklch(0.84 0.012 285);
+  --n8: oklch(0.95 0.008 285);
+
+  --blue:   oklch(0.78 0.11 255);
+  --purple: oklch(0.78 0.13 300);
+  --green:  oklch(0.80 0.15 150);
+  --orange: oklch(0.80 0.13 65);
+  --cyan:   oklch(0.82 0.10 200);
+  --rose:   oklch(0.75 0.13 15);
+
+  --radius: 0.25rem;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scrollbar-width: thin; scrollbar-color: var(--n3) transparent; }
+body {
+  margin: 0;
+  background: var(--n0);
+  color: var(--n8);
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 2px; }
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 10;
+  background: var(--n2); color: var(--n8); padding: 0.5rem 0.75rem;
+  font-family: var(--mono); font-size: 0.75rem;
+}
+.skip:focus { left: 0.75rem; top: 0.75rem; }
+
+.wrap { max-width: 78rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+/* ── Status strip ──────────────────────────────────────────────────────
+   The portfolio's systemctl-style header: a dot, the subject, the state.
+   This is a machine reporting on itself, so it stays in the mono voice. */
+.strip {
+  display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
+  border: 1px solid var(--n5);
+  border-radius: var(--radius);
+  padding: 0.625rem 0.875rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  background: var(--n1);
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex: none; }
+.dot.stale { background: var(--n5); }
+.dot.err { background: var(--rose); }
+.strip .subject { color: var(--n8); font-weight: 500; }
+.strip .dash { color: var(--n4); }
+.strip .state { color: var(--n6); }
+.strip .right { margin-left: auto; color: var(--n6); }
+
+/* ── Controls ──────────────────────────────────────────────────────────
+   Inputs get the strong border step: an edge you are meant to click must
+   read at a glance, unlike a hairline rule.                             */
+.controls {
+  display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;
+  margin: 1.5rem 0 2rem;
+}
+.field { display: flex; flex-direction: column; gap: 0.375rem; }
+.field label {
+  font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--n6);
+}
+input[type="number"], select {
+  font-family: var(--mono); font-size: 0.8125rem;
+  background: var(--n1); color: var(--n8);
+  border: 1px solid var(--n5); border-radius: var(--radius);
+  padding: 0.5rem 0.625rem; min-width: 8.5rem;
+  transition: border-color 180ms var(--ease);
+}
+input[type="number"]:hover, select:hover { border-color: var(--n6); }
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+button {
+  font-family: var(--mono); font-size: 0.8125rem; font-weight: 500;
+  background: var(--n2); color: var(--n8);
+  border: 1px solid var(--n5); border-radius: var(--radius);
+  padding: 0.5rem 0.9rem; cursor: pointer;
+  transition: background 180ms var(--ease), border-color 180ms var(--ease);
+}
+button:hover:not(:disabled) { background: var(--n3); border-color: var(--n6); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.sortrow { display: flex; gap: 0.375rem; }
+.sortrow select { min-width: 9rem; }
+.sortrow button { min-width: 2.25rem; padding: 0.5rem 0; font-size: 0.875rem; }
+
+.toggle { display: flex; border: 1px solid var(--n5); border-radius: var(--radius); overflow: hidden; }
+.toggle button { border: 0; border-radius: 0; background: transparent; color: var(--n6); }
+.toggle button + button { border-left: 1px solid var(--n5); }
+.toggle button[aria-pressed="true"] { background: var(--n3); color: var(--n8); }
+
+/* ── Section eyebrow ───────────────────────────────────────────────────
+   Same idiom as the portfolio's fpl-status heading.                     */
+.eyebrow {
+  display: flex; align-items: center; gap: 0.75rem;
+  font-family: var(--mono); font-size: 0.6875rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--n6);
+  margin: 2.25rem 0 0.875rem;
+}
+.eyebrow::after { content: ""; height: 1px; flex: 1; background: var(--n4); }
+
+/* ── Table ─────────────────────────────────────────────────────────────*/
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+thead th {
+  font-family: var(--mono); font-size: 0.625rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--n6);
+  text-align: right; padding: 0 0.6rem 0.55rem; white-space: nowrap;
+  border-bottom: 1px solid var(--n4);
+}
+thead th:nth-child(-n+2) { text-align: left; }
+thead th.sortable { cursor: pointer; }
+thead th.sortable:hover { color: var(--blue); }
+thead th[aria-sort] { color: var(--blue); }
+thead th .caret { opacity: 0.7; }
+
+tbody td {
+  padding: 0.5rem 0.6rem; text-align: right; white-space: nowrap;
+  border-bottom: 1px solid color-mix(in oklch, var(--n4) 45%, transparent);
+}
+tbody td:nth-child(-n+2) { text-align: left; }
+tbody tr { transition: background 150ms var(--ease); }
+tbody tr.row:hover { background: var(--n1); }
+tbody tr.row.open { background: var(--n1); }
+
+.rank { font-family: var(--mono); color: var(--n6); font-size: 0.8125rem; }
+.who { display: flex; flex-direction: column; line-height: 1.3; }
+.who .name { color: var(--n8); }
+.who .team { font-size: 0.75rem; color: var(--n6); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dim { color: var(--n6); }
+.faint { color: var(--n4); }
+.gwpts { font-weight: 500; }
+.hit { color: var(--rose); }
+.gwrank { color: var(--cyan); font-size: 0.8125rem; }
+
+/* Rank movement. Green/rose are 4.6 ΔE apart for a deuteranope, which is
+   below even the conditional floor — so the arrow is load-bearing, not
+   decoration, and the colour is a second channel on top of it. */
+.move { font-family: var(--mono); font-size: 0.75rem; }
+.move.up { color: var(--green); }
+.move.down { color: var(--rose); }
+.move.flat { color: var(--n4); }
+
+/* Chips are categorical, but four hues from this palette would not
+   survive CVD. One hue, and the two-letter label does the identifying. */
+.chip {
+  font-family: var(--mono); font-size: 0.6875rem; font-weight: 500;
+  color: var(--purple);
+  border: 1px solid color-mix(in oklch, var(--purple) 35%, transparent);
+  border-radius: 2px; padding: 0.1rem 0.3rem;
+}
+
+/* ── Bench meter ───────────────────────────────────────────────────────
+   Magnitude across one series: one hue, length carries the value. Thin
+   mark, rounded data-end, anchored to a baseline shared by every row so
+   the lengths are comparable down the column.                           */
+.bench { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; }
+.bench .val { min-width: 1.75rem; text-align: right; }
+.meter { width: 3.5rem; height: 5px; background: var(--n2); border-radius: 3px; overflow: hidden; flex: none; }
+.meter > i { display: block; height: 100%; background: var(--orange); border-radius: 3px; }
+.derived { color: var(--orange); font-size: 0.75rem; }
+
+/* ── Transfer detail ───────────────────────────────────────────────────*/
+tr.detail td { padding: 0 0.6rem 0.75rem; border-bottom: 1px solid color-mix(in oklch, var(--n4) 45%, transparent); }
+.tf-list { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-family: var(--mono); font-size: 0.75rem; color: var(--n7); }
+.tf-list .out { color: var(--n6); }
+.tf-list .arrow { color: var(--n4); margin: 0 0.3rem; }
+.tf-none { font-size: 0.75rem; color: var(--n6); font-style: italic; }
+
+/* ── Messages ──────────────────────────────────────────────────────────
+   The portfolio renders nothing when the FPL API is down, because no
+   reader of a portfolio needs to know. A tool inverts that: the person
+   here is trying to get an answer, and the failure is the answer.       */
+.msg { border: 1px solid var(--n4); border-radius: var(--radius); padding: 1rem 1.1rem; margin-top: 1.5rem; font-size: 0.875rem; }
+.msg.error { border-color: color-mix(in oklch, var(--rose) 45%, transparent); }
+.msg.error .m-head { color: var(--rose); font-family: var(--mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
+.msg .m-body { color: var(--n7); margin-top: 0.4rem; font-family: var(--mono); font-size: 0.8125rem; word-break: break-word; }
+.msg.empty { color: var(--n6); }
+
+.notes { margin-top: 1.25rem; font-size: 0.8125rem; color: var(--n6); display: grid; gap: 0.3rem; }
+.notes b { color: var(--n7); font-weight: 500; }
+.provisional { color: var(--n7); }
+
+/* ── Motion ────────────────────────────────────────────────────────────
+   One entrance, and what it staggers is a league table arriving row by
+   row — the motion depicts its subject rather than decorating it.       */
+@keyframes rowin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(var(--i) * 18ms); }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#results">Skip to results</a>
+<div class="wrap">
+
+  <header class="strip" id="strip">
+    <span class="dot stale" id="dot" role="img" aria-label="status"></span>
+    <span class="subject" id="subject">fpl-league-rank</span>
+    <span class="dash">—</span>
+    <span class="state" id="state">idle</span>
+    <span class="right" id="count"></span>
+  </header>
+
+  <form class="controls" id="controls">
+    <div class="field">
+      <label for="league">League ID</label>
+      <input type="number" id="league" name="league" min="1" placeholder="580906" required>
+    </div>
+    <div class="field">
+      <label for="gw">Gameweek</label>
+      <select id="gw" name="gw"><option value="0">Current</option></select>
+    </div>
+    <div class="field">
+      <label for="max">Managers</label>
+      <select id="max" name="max">
+        <option value="50">First 50</option>
+        <option value="100">First 100</option>
+        <option value="0">All</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="sort">Sort by</label>
+      <div class="sortrow">
+        <select id="sort"></select>
+        <button type="button" id="sortdir" title="Reverse the sort">↓</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="view-gw">View</label>
+      <div class="toggle" role="group" aria-label="View">
+        <button type="button" id="view-gw" aria-pressed="true">Gameweek</button>
+        <button type="button" id="view-season" aria-pressed="false">Season</button>
+      </div>
+    </div>
+    <button type="submit" id="go">Load</button>
+  </form>
+
+  <main id="results">
+    <div id="panel"></div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+// The league this tool is for. Deliberately the only fallback: an earlier
+// version also remembered the last league in localStorage, which meant one
+// mistyped id (58006 is a real 2-manager league, so it loaded fine and was
+// saved) silently replaced the default on every later visit with nothing on
+// screen to explain it. An explicit ?league= still overrides.
+const DEFAULT_LEAGUE = 580906;
+
+const state = { view: "gw", sort: { key: "leagueRank", dir: 1 }, report: null, open: new Set() };
+
+// ── status strip ──────────────────────────────────────────────────────
+function setStatus(kind, subject, text, right) {
+  $("dot").className = "dot" + (kind === "ok" ? "" : kind === "err" ? " err" : " stale");
+  $("subject").textContent = subject;
+  $("state").textContent = text;
+  $("count").textContent = right || "";
+}
+
+// ── formatting ────────────────────────────────────────────────────────
+const fmt = (n) => (n == null ? "—" : n.toLocaleString("en-GB"));
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function movement(rank, lastRank) {
+  if (!lastRank || !rank || lastRank === rank) return '<span class="move flat" aria-hidden="true">·</span>';
+  const d = lastRank - rank;
+  // The glyph carries the meaning; colour is the second channel only.
+  return d > 0
+    ? `<span class="move up">↑${d}</span>`
+    : `<span class="move down">↓${-d}</span>`;
+}
+
+function meter(value, max) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return `<span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span>`;
+}
+
+// ── column definitions ────────────────────────────────────────────────
+const gwCols = [
+  { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r) => `<span class="rank">${r.leagueRank}</span> ${movement(r.leagueRank, r.lastRank)}` },
+  { key: "manager", label: "Manager", cell: (r) => `<span class="who"><span class="name">${esc(r.manager)}</span><span class="team">${esc(r.entry)}</span></span>` },
+  { key: "netPoints", label: "GW", sortLabel: "GW points", num: true, cell: (r) => r.played ? `<span class="num gwpts">${r.netPoints}</span>` : '<span class="faint">—</span>',
+    title: (r) => r.played ? `${r.grossPoints} scored${r.hit ? ` − ${r.hit} hit` : ""} = ${r.netPoints}` : "not in this gameweek" },
+  { key: "hit", label: "Hit", num: true, cell: (r) => r.hit ? `<span class="num hit">−${r.hit}</span>` : '<span class="faint">·</span>' },
+  { key: "bench", label: "Bench", num: true, cell: (r, ctx) => r.played
+      ? `<span class="bench">${meter(r.bench, ctx.maxBench)}<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" title="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}</span>`
+      : '<span class="faint">—</span>' },
+  { key: "chip", label: "Chip", cell: (r) => r.chip ? `<span class="chip">${esc(r.chip)}</span>` : '<span class="faint">·</span>' },
+  { key: "transfers", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
+  { key: "gwRank", label: "GW Rank", num: true, cell: (r) => r.gwRank ? `<span class="num gwrank">${fmt(r.gwRank)}</span>` : '<span class="faint">—</span>' },
+  { key: "total", label: "Total", num: true, cell: (r) => `<span class="num">${r.total}</span>` },
+];
+
+const seasonCols = [
+  { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r) => `<span class="rank">${r.leagueRank}</span>` },
+  { key: "manager", label: "Manager", cell: (r) => `<span class="who"><span class="name">${esc(r.manager)}</span><span class="team">${esc(r.entry)}</span></span>` },
+  { key: "total", label: "Total", num: true, cell: (r) => `<span class="num gwpts">${r.total}</span>` },
+  { key: "benchTotal", label: "Benched", num: true, cell: (r, ctx) => `<span class="bench">${meter(r.benchTotal, ctx.maxBench)}<span class="num val">${r.benchTotal}</span></span>` },
+  { key: "hitsTotal", label: "Hits", num: true, cell: (r) => r.hitsTotal ? `<span class="num hit">−${r.hitsTotal}</span>` : '<span class="faint">·</span>' },
+  { key: "transfersTotal", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => `<span class="num dim">${r.transfersTotal}</span>` },
+  { key: "bestGwPoints", label: "Best GW", num: true, cell: (r) => r.bestGw ? `<span class="num">${r.bestGwPoints}</span> <span class="dim">GW${r.bestGw}</span>` : '<span class="faint">—</span>' },
+  { key: "chips", label: "Chips used", nosort: true, cell: (r) => (r.chipsUsed && r.chipsUsed.length)
+      ? r.chipsUsed.map((c) => `<span class="chip">${esc(chipLabel(c.name))}<span class="dim"> ${c.event}</span></span>`).join(" ")
+      : '<span class="faint">·</span>' },
+];
+
+// Rank columns sort ascending (1 is best); every other column is a magnitude
+// where the interesting end is the top. One definition, used by both the
+// dropdown and the column headers.
+function defaultDir(key) {
+  return key === "leagueRank" || key === "gwRank" ? 1 : -1;
+}
+
+function setSort(key) {
+  state.sort = key === state.sort.key
+    ? { key, dir: -state.sort.dir }
+    : { key, dir: defaultDir(key) };
+  render();
+}
+
+function columnsFor(view) {
+  return view === "season" ? seasonCols : gwCols;
+}
+
+// Rebuilds the dropdown when the view changes, since the two views expose
+// different columns. Keeps the current key if it exists in the new view.
+function fillSortOptions() {
+  const cols = columnsFor(state.view).filter((c) => !c.nosort);
+  if (!cols.some((c) => c.key === state.sort.key)) {
+    state.sort = { key: "leagueRank", dir: 1 };
+  }
+  $("sort").innerHTML = cols
+    .map((c) => `<option value="${c.key}">${esc(c.sortLabel || c.label)}</option>`)
+    .join("");
+  $("sort").value = state.sort.key;
+}
+
+function chipLabel(n) {
+  return { wildcard: "WC", freehit: "FH", bboost: "BB", "3xc": "TC" }[n] || n;
+}
+
+// ── render ────────────────────────────────────────────────────────────
+function render() {
+  const rep = state.report;
+  if (!rep) return;
+
+  const season = state.view === "season";
+  const rows = [...(season ? rep.season : rep.gameweek)];
+  const cols = columnsFor(state.view);
+  const benchKey = season ? "benchTotal" : "bench";
+  const ctx = { maxBench: Math.max(1, ...rows.map((r) => r[benchKey] || 0)) };
+
+  const { key, dir } = state.sort;
+  rows.sort((a, b) => {
+    const av = a[key], bv = b[key];
+    if (typeof av === "string") return dir * av.localeCompare(bv);
+    return dir * ((av ?? -1) - (bv ?? -1));
+  });
+
+  const head = cols.map((c) => {
+    if (c.nosort) return `<th scope="col">${esc(c.label)}</th>`;
+    const active = c.key === key;
+    const caret = active ? `<span class="caret">${dir === 1 ? "↑" : "↓"}</span>` : "";
+    const sortAttr = active ? ` aria-sort="${dir === 1 ? "ascending" : "descending"}"` : "";
+    return `<th scope="col" class="sortable" data-key="${c.key}" tabindex="0" role="button"${sortAttr}>${esc(c.label)} ${caret}</th>`;
+  }).join("");
+
+  const body = rows.map((r, i) => {
+    const cells = cols.map((c) => {
+      const t = c.title ? ` title="${esc(c.title(r))}"` : "";
+      return `<td${t}>${c.cell(r, ctx)}</td>`;
+    }).join("");
+    const isOpen = state.open.has(r.entryId);
+    let html = `<tr class="row${isOpen ? " open" : ""}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-expanded="${isOpen}">${cells}</tr>`;
+    if (isOpen) html += detailRow(r, cols.length, rep);
+    return html;
+  }).join("");
+
+  $("sort").value = key;
+  $("sortdir").textContent = dir === 1 ? "↑" : "↓";
+  $("sortdir").setAttribute("aria-label", dir === 1 ? "Ascending, click to reverse" : "Descending, click to reverse");
+
+  const label = season ? `season to ${esc(rep.event.name)}` : esc(rep.event.name);
+
+  $("panel").innerHTML = `
+    <h2 class="eyebrow">${label}</h2>
+    ${rep.provisional && !season ? '<p class="provisional">This gameweek is not finalised — bonus, gameweek ranks and bench points can still move.</p>' : ""}
+    <div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+    ${notes(season)}`;
+
+  $("panel").querySelectorAll("th.sortable").forEach((th) => {
+    const act = () => setSort(th.dataset.key);
+    th.addEventListener("click", act);
+    th.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
+  });
+
+  $("panel").querySelectorAll("tr.row").forEach((tr) => {
+    const act = () => {
+      const id = Number(tr.dataset.entry);
+      state.open.has(id) ? state.open.delete(id) : state.open.add(id);
+      render();
+    };
+    tr.addEventListener("click", act);
+    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
+  });
+}
+
+function detailRow(r, span, rep) {
+  const tf = r.transferDetail || [];
+  const inner = tf.length
+    ? `<div class="tf-list">${tf.map((t) =>
+        `<span><span class="out">${esc(rep.playerNames[t.elementOut] || t.elementOut)}</span><span class="arrow">→</span>${esc(rep.playerNames[t.elementIn] || t.elementIn)}</span>`
+      ).join("")}</div>`
+    : `<p class="tf-none">No transfers this gameweek.</p>`;
+  return `<tr class="detail"><td colspan="${span}">${inner}</td></tr>`;
+}
+
+function notes(season) {
+  return `<div class="notes">
+    <span><b>GW</b> is net of the transfer hit — the API reports it gross. Hover a score for the breakdown.</span>
+    ${season
+      ? '<span><b>Benched</b> reads 0 for any Bench Boost week, which is what the API reports for them.</span>'
+      : '<span><b>*</b> marks a bench recomputed from picks and live points, because Bench Boost reports 0.</span>'}
+    <span>Select a row for its transfers. Column headings sort.</span>
+  </div>`;
+}
+
+// ── data ──────────────────────────────────────────────────────────────
+async function load(push) {
+  const league = Number($("league").value);
+  if (!league) return;
+  const gw = Number($("gw").value);
+  const max = Number($("max").value);
+
+  $("go").disabled = true;
+  setStatus("stale", `league ${league}`, "fetching…", "");
+  $("panel").innerHTML = "";
+
+  const qs = new URLSearchParams({ league, gw, max });
+  try {
+    const res = await fetch(`/api/report?${qs}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
+
+    state.report = data;
+    state.open.clear();
+    fillGameweeks(data);
+
+    if (push) {
+      const url = new URL(location);
+      url.searchParams.set("league", league);
+      gw ? url.searchParams.set("gw", gw) : url.searchParams.delete("gw");
+      history.replaceState(null, "", url);
+    }
+
+    setStatus("ok", data.league.name || `league ${league}`,
+      data.provisional ? `${data.event.name} · provisional` : data.event.name,
+      `${data.gameweek.length} managers`);
+    render();
+  } catch (err) {
+    state.report = null;
+    setStatus("err", `league ${league}`, "failed", "");
+    // Show the real reason. A wrong id and a rate limit need different fixes.
+    $("panel").innerHTML =
+      `<div class="msg error"><div class="m-head">could not load</div><div class="m-body">${esc(err.message)}</div></div>`;
+  } finally {
+    $("go").disabled = false;
+  }
+}
+
+function fillGameweeks(data) {
+  const sel = $("gw");
+  const chosen = sel.value;
+  sel.innerHTML = '<option value="0">Current</option>' +
+    (data.events || []).slice().reverse()
+      .map((e) => `<option value="${e.id}">${esc(e.name)}</option>`).join("");
+  sel.value = chosen;
+}
+
+// ── wiring ────────────────────────────────────────────────────────────
+$("controls").addEventListener("submit", (e) => { e.preventDefault(); load(true); });
+
+$("sort").addEventListener("change", () => {
+  state.sort = { key: $("sort").value, dir: defaultDir($("sort").value) };
+  if (state.report) render();
+});
+
+$("sortdir").addEventListener("click", () => {
+  state.sort = { key: state.sort.key, dir: -state.sort.dir };
+  if (state.report) render();
+});
+
+for (const [id, view] of [["view-gw", "gw"], ["view-season", "season"]]) {
+  $(id).addEventListener("click", () => {
+    state.view = view;
+    state.open.clear();
+    $("view-gw").setAttribute("aria-pressed", String(view === "gw"));
+    $("view-season").setAttribute("aria-pressed", String(view === "season"));
+    fillSortOptions();
+    if (state.report) render();
+  });
+}
+
+(function init() {
+  fillSortOptions();
+  const params = new URLSearchParams(location.search);
+  // Clear the key the old build wrote, so a browser carrying a stale league
+  // heals itself on the next load rather than needing devtools.
+  try { localStorage.removeItem("fpl.league"); } catch {}
+  const league = params.get("league") || DEFAULT_LEAGUE;
+  if (league) $("league").value = league;
+  if (params.get("gw")) {
+    const gw = params.get("gw");
+    $("gw").innerHTML += `<option value="${Number(gw)}">GW ${Number(gw)}</option>`;
+    $("gw").value = gw;
+  }
+  if (league) load(false);
+})();
+</script>
+</body>
+</html>
