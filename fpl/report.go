@@ -45,15 +45,37 @@ type ManagerGW struct {
 
 	// Bench is points_on_bench, except during a Bench Boost where the API
 	// reports 0 and we recompute the real figure from picks + live data.
-	Bench          int        `json:"bench"`
-	BenchDerived   bool       `json:"benchDerived"`
-	Transfers      int        `json:"transfers"`
-	TransferDetail []Transfer `json:"transferDetail,omitempty"`
+	Bench          int           `json:"bench"`
+	BenchDerived   bool          `json:"benchDerived"`
+	Transfers      int           `json:"transfers"`
+	TransferDetail []TransferOut `json:"transferDetail,omitempty"`
 
 	// WonGW / WonBench mark the winners of this particular gameweek. Ties are
 	// shared, so more than one manager can carry either badge.
 	WonGW    bool `json:"wonGw"`
 	WonBench bool `json:"wonBench"`
+}
+
+// TransferOut is the outward shape of a transfer. The Transfer type it comes
+// from carries snake_case tags because those decode the FPL API's own field
+// names; re-serialising it put element_out into a payload that is camelCase
+// everywhere else, which the frontend then read as undefined.
+type TransferOut struct {
+	In      int `json:"in"`
+	Out     int `json:"out"`
+	InCost  int `json:"inCost"`
+	OutCost int `json:"outCost"`
+	Event   int `json:"event"`
+}
+
+func toTransferOut(t Transfer) TransferOut {
+	return TransferOut{
+		In:      t.ElementIn,
+		Out:     t.ElementOut,
+		InCost:  t.ElementInCost,
+		OutCost: t.ElementOutCost,
+		Event:   t.Event,
+	}
 }
 
 // ManagerSeason aggregates a manager's whole season.
@@ -166,7 +188,7 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		Event:       ev,
 		Provisional: !ev.DataChecked,
 		NewEntries:  len(newEnts.Results),
-		PlayerNames: boot.PlayerNames(),
+		PlayerNames: map[int]string{},
 	}
 	for _, e := range boot.Events {
 		if e.IsCurrent || e.IsPrevious || e.Finished || e.ID < ev.ID {
@@ -228,7 +250,7 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 
 		for _, t := range d.transfers {
 			if t.Event == ev.ID {
-				gw.TransferDetail = append(gw.TransferDetail, t)
+				gw.TransferDetail = append(gw.TransferDetail, toTransferOut(t))
 			}
 		}
 
@@ -237,6 +259,17 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 	}
 
 	awardWeeklyWins(data, rep)
+
+	// Ship names only for the players that actually appear in this response.
+	// The full map is all 622 players and was half the payload, to render a
+	// handful of transfer rows.
+	allNames := boot.PlayerNames()
+	for _, g := range rep.Gameweek {
+		for _, t := range g.TransferDetail {
+			rep.PlayerNames[t.In] = allNames[t.In]
+			rep.PlayerNames[t.Out] = allNames[t.Out]
+		}
+	}
 
 	sort.Slice(rep.Gameweek, func(i, j int) bool {
 		return rep.Gameweek[i].LeagueRank < rep.Gameweek[j].LeagueRank

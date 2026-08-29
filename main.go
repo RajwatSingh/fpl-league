@@ -34,8 +34,18 @@ func main() {
 	)
 	flag.Parse()
 
-	if *serveAddr != "" {
-		if err := serve(*serveAddr, *concurrency); err != nil {
+	// Vercel's Go preset starts the binary with no arguments and expects it to
+	// listen on $PORT. Locally the -serve flag does the same job, so either
+	// route lands in the same server.
+	addr := *serveAddr
+	if addr == "" {
+		if port := os.Getenv("PORT"); port != "" {
+			addr = ":" + port
+		}
+	}
+
+	if addr != "" {
+		if err := serve(addr, *concurrency); err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
@@ -140,7 +150,7 @@ func printTransferDetail(rep *fpl.Report, rows []fpl.ManagerGW) {
 		fmt.Printf("  %s%s\n", r.Manager, hit)
 		for _, t := range r.TransferDetail {
 			fmt.Printf("      %s → %s\n",
-				rep.PlayerNames[t.ElementOut], rep.PlayerNames[t.ElementIn])
+				rep.PlayerNames[t.Out], rep.PlayerNames[t.In])
 		}
 	}
 	if !any {

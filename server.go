@@ -9,7 +9,9 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,27 @@ var webFiles embed.FS
 // dozens of upstream calls, so refetching it on every browser refresh would be
 // both slow and rude.
 const cacheTTL = 60 * time.Second
+
+// hardMaxManagers caps the fan-out no matter what the query string asks for.
+// Without it a public deployment is an open proxy: ?league=314&max=0 would walk
+// eleven million managers, two upstream calls each, from this server's IP.
+const hardMaxManagers = 100
+
+// allowedLeagues, when non-empty, is the only set of leagues this server will
+// fetch. Set ALLOWED_LEAGUES=580906,123456 to lock a public deployment down.
+func allowedLeagues() map[int]bool {
+	raw := os.Getenv("ALLOWED_LEAGUES")
+	if raw == "" {
+		return nil
+	}
+	out := map[int]bool{}
+	for _, part := range strings.Split(raw, ",") {
+		if id, err := strconv.Atoi(strings.TrimSpace(part)); err == nil {
+			out[id] = true
+		}
+	}
+	return out
+}
 
 type cacheEntry struct {
 	report *fpl.Report
@@ -58,8 +81,24 @@ func (s *server) handleReport(concurrency int) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "a numeric league id is required")
 			return
 		}
+		if allow := allowedLeagues(); allow != nil && !allow[leagueID] {
+			writeErr(w, http.StatusForbidden,
+				fmt.Sprintf("league %d is not on this deployment's allowlist", leagueID))
+			return
+		}
+
 		gw, _ := intParam(r, "gw", 0)
 		max, _ := intParam(r, "max", 0)
+		if max <= 0 || max > hardMaxManagers {
+			max = hardMaxManagers
+		}
+
+		// A shared CDN cache in front of this is what makes a public deployment
+		// viable: the in-memory cache below is per-instance and dies with it,
+		// but s-maxage is shared, and stale-while-revalidate means a visitor
+		// during a refresh gets last minute's numbers instantly instead of
+		// waiting on fifty upstream calls.
+		w.Header().Set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
 
 		key := fmt.Sprintf("%d/%d/%d", leagueID, gw, max)
 		if rep, ok := s.cached(key); ok {

@@ -559,7 +559,7 @@ function detailRow(r, span, rep) {
   const tf = r.transferDetail || [];
   const inner = tf.length
     ? `<div class="tf-list">${tf.map((t) =>
-        `<span><span class="out">${esc(rep.playerNames[t.elementOut] || t.elementOut)}</span><span class="arrow">→</span>${esc(rep.playerNames[t.elementIn] || t.elementIn)}</span>`
+        `<span><span class="out">${esc(rep.playerNames[t.out] || t.out)}</span><span class="arrow">→</span>${esc(rep.playerNames[t.in] || t.in)}</span>`
       ).join("")}</div>`
     : `<p class="tf-none">No transfers this gameweek.</p>`;
   return `<tr class="detail"><td colspan="${span}">${inner}</td></tr>`;
