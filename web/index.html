@@ -44,7 +44,10 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { scrollbar-width: thin; scrollbar-color: var(--n3) transparent; }
+html {
+  scrollbar-width: thin; scrollbar-color: var(--n3) transparent;
+  -webkit-text-size-adjust: 100%;
+}
 body {
   margin: 0;
   background: var(--n0);
@@ -92,7 +95,7 @@ body {
   display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;
   margin: 1.5rem 0 2rem;
 }
-.field { display: flex; flex-direction: column; gap: 0.375rem; }
+.field { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
 .field label {
   font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--n6);
@@ -102,8 +105,23 @@ input[type="number"], select {
   background: var(--n1); color: var(--n8);
   border: 1px solid var(--n5); border-radius: var(--radius);
   padding: 0.5rem 0.625rem; min-width: 8.5rem;
+  line-height: 1.4;
   transition: border-color 180ms var(--ease);
 }
+/* The popup a <select> opens is a separate surface and does NOT inherit the
+   select's font-size — it has to be set on the options themselves, or the
+   list renders at the browser default and comes out tiny next to the
+   control that opened it. Chrome and Firefox honour these; Safari styles
+   the popup itself and ignores most of them, which is fine because Safari's
+   default is already legible. */
+select option {
+  font-family: var(--sans);
+  font-size: 1rem;
+  background: var(--n1);
+  color: var(--n8);
+  padding: 0.5rem 0.625rem;
+}
+
 input[type="number"]:hover, select:hover { border-color: var(--n6); }
 input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
@@ -138,7 +156,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .eyebrow::after { content: ""; height: 1px; flex: 1; background: var(--n4); }
 
 /* ── Table ─────────────────────────────────────────────────────────────*/
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 thead th {
   font-family: var(--mono); font-size: 0.625rem; font-weight: 600;
@@ -189,6 +207,29 @@ tbody tr.row.open { background: var(--n1); }
   border-radius: 2px; padding: 0.1rem 0.3rem;
 }
 
+/* ── Weekly honours ───────────────────────────────────────────────────
+   Two tallies, and they must not be told apart by hue alone: each badge
+   carries its own word, and the season columns carry a count. Green is
+   the win (success, per the palette contract); orange is the bench,
+   matching the meter directly beside it in the same table.            */
+.badge {
+  font-family: var(--mono); font-size: 0.625rem; font-weight: 600;
+  letter-spacing: 0.06em; border-radius: 2px; padding: 0.05rem 0.28rem;
+  white-space: nowrap;
+}
+.badge.win {
+  color: var(--green);
+  border: 1px solid color-mix(in oklch, var(--green) 35%, transparent);
+}
+.badge.benchwin {
+  color: var(--orange);
+  border: 1px solid color-mix(in oklch, var(--orange) 35%, transparent);
+}
+.badges { display: inline-flex; gap: 0.3rem; margin-left: 0.4rem; vertical-align: 1px; }
+.tally { display: inline-flex; align-items: center; gap: 0.35rem; justify-content: flex-end; }
+.tally .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tally .n.zero { color: var(--n4); }
+
 /* ── Bench meter ───────────────────────────────────────────────────────
    Magnitude across one series: one hue, length carries the value. Thin
    mark, rounded data-end, anchored to a baseline shared by every row so
@@ -225,6 +266,51 @@ tr.detail td { padding: 0 0.6rem 0.75rem; border-bottom: 1px solid color-mix(in 
    row — the motion depicts its subject rather than decorating it.       */
 @keyframes rowin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(var(--i) * 18ms); }
+/* ── Phone ─────────────────────────────────────────────────────────────
+   The controls were a wrapping flex row with 8.5rem minimums, which on a
+   390px screen collapsed into cramped half-width dropdowns. They become a
+   two-column grid instead, with the league id, sort and view rows spanning
+   the full width.
+
+   The important number here is the 16px font on inputs and selects. Below
+   16px, iOS Safari zooms the whole page in when a control takes focus and
+   does not zoom back out — the single most common cause of a form feeling
+   broken on an iPhone. Everything also gets a 44px minimum height, which
+   is Apple's minimum touch target; the old 0.5rem padding gave 34px.     */
+@media (max-width: 640px) {
+  .wrap { padding: 1.25rem 0.875rem 3rem; }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem 0.625rem;
+    align-items: end;
+    margin: 1.25rem 0 1.5rem;
+  }
+  .f-league, .f-sort, .f-view, #go { grid-column: 1 / -1; }
+
+  input[type="number"], select, button {
+    font-size: 1rem;              /* 16px: below this iOS zooms on focus */
+    min-height: 2.75rem;          /* 44px touch target */
+    min-width: 0;
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+  }
+  .field label { font-size: 0.75rem; }
+
+  .sortrow select { min-width: 0; flex: 1; }
+  .sortrow button { width: 2.75rem; min-width: 2.75rem; flex: none; padding: 0; }
+
+  .toggle { width: 100%; }
+  .toggle button { flex: 1; }
+
+  /* The table keeps all ten columns and scrolls sideways rather than
+     hiding data; tightening the cells buys a couple of columns per screen. */
+  table { font-size: 0.8125rem; }
+  tbody td, thead th { padding-left: 0.45rem; padding-right: 0.45rem; }
+  .strip { font-size: 0.6875rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
@@ -243,15 +329,15 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
   </header>
 
   <form class="controls" id="controls">
-    <div class="field">
+    <div class="field f-league">
       <label for="league">League ID</label>
       <input type="number" id="league" name="league" min="1" placeholder="580906" required>
     </div>
-    <div class="field">
+    <div class="field f-gw">
       <label for="gw">Gameweek</label>
       <select id="gw" name="gw"><option value="0">Current</option></select>
     </div>
-    <div class="field">
+    <div class="field f-max">
       <label for="max">Managers</label>
       <select id="max" name="max">
         <option value="50">First 50</option>
@@ -259,14 +345,14 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
         <option value="0">All</option>
       </select>
     </div>
-    <div class="field">
+    <div class="field f-sort">
       <label for="sort">Sort by</label>
       <div class="sortrow">
         <select id="sort"></select>
         <button type="button" id="sortdir" title="Reverse the sort">↓</button>
       </div>
     </div>
-    <div class="field">
+    <div class="field f-view">
       <label for="view-gw">View</label>
       <div class="toggle" role="group" aria-label="View">
         <button type="button" id="view-gw" aria-pressed="true">Gameweek</button>
@@ -323,7 +409,8 @@ function meter(value, max) {
 // ── column definitions ────────────────────────────────────────────────
 const gwCols = [
   { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r) => `<span class="rank">${r.leagueRank}</span> ${movement(r.leagueRank, r.lastRank)}` },
-  { key: "manager", label: "Manager", cell: (r) => `<span class="who"><span class="name">${esc(r.manager)}</span><span class="team">${esc(r.entry)}</span></span>` },
+  { key: "manager", label: "Manager", cell: (r) =>
+      `<span class="who"><span class="name">${esc(r.manager)}${weekBadges(r)}</span><span class="team">${esc(r.entry)}</span></span>` },
   { key: "netPoints", label: "GW", sortLabel: "GW points", num: true, cell: (r) => r.played ? `<span class="num gwpts">${r.netPoints}</span>` : '<span class="faint">—</span>',
     title: (r) => r.played ? `${r.grossPoints} scored${r.hit ? ` − ${r.hit} hit` : ""} = ${r.netPoints}` : "not in this gameweek" },
   { key: "hit", label: "Hit", num: true, cell: (r) => r.hit ? `<span class="num hit">−${r.hit}</span>` : '<span class="faint">·</span>' },
@@ -344,6 +431,10 @@ const seasonCols = [
   { key: "hitsTotal", label: "Hits", num: true, cell: (r) => r.hitsTotal ? `<span class="num hit">−${r.hitsTotal}</span>` : '<span class="faint">·</span>' },
   { key: "transfersTotal", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => `<span class="num dim">${r.transfersTotal}</span>` },
   { key: "bestGwPoints", label: "Best GW", num: true, cell: (r) => r.bestGw ? `<span class="num">${r.bestGwPoints}</span> <span class="dim">GW${r.bestGw}</span>` : '<span class="faint">—</span>' },
+  { key: "gwWins", label: "Wins", sortLabel: "Gameweek wins", num: true, cell: (r) =>
+      tally(r.gwWins, "win", "★", r.gwWinWeeks, "Top score in") },
+  { key: "benchWins", label: "Bench wins", sortLabel: "Bench wins", num: true, cell: (r) =>
+      tally(r.benchWins, "benchwin", "▬", r.benchWinWeeks, "Most points benched in") },
   { key: "chips", label: "Chips used", nosort: true, cell: (r) => (r.chipsUsed && r.chipsUsed.length)
       ? r.chipsUsed.map((c) => `<span class="chip">${esc(chipLabel(c.name))}<span class="dim"> ${c.event}</span></span>`).join(" ")
       : '<span class="faint">·</span>' },
@@ -378,6 +469,20 @@ function fillSortOptions() {
     .map((c) => `<option value="${c.key}">${esc(c.sortLabel || c.label)}</option>`)
     .join("");
   $("sort").value = state.sort.key;
+}
+
+// Ties are shared, so both badges can appear on more than one row in a week.
+function weekBadges(r) {
+  const b = [];
+  if (r.wonGw) b.push('<span class="badge win" title="Highest score in this gameweek">★ WIN</span>');
+  if (r.wonBench) b.push('<span class="badge benchwin" title="Most points left on the bench this gameweek">▬ BENCH</span>');
+  return b.length ? `<span class="badges">${b.join("")}</span>` : "";
+}
+
+function tally(n, cls, glyph, weeks, verb) {
+  if (!n) return '<span class="tally"><span class="n zero">·</span></span>';
+  const t = `${verb} ${weeks.map((w) => "GW" + w).join(", ")}`;
+  return `<span class="tally" title="${esc(t)}"><span class="badge ${cls}">${glyph}</span><span class="n">${n}</span></span>`;
 }
 
 function chipLabel(n) {
@@ -466,6 +571,8 @@ function notes(season) {
     ${season
       ? '<span><b>Benched</b> reads 0 for any Bench Boost week, which is what the API reports for them.</span>'
       : '<span><b>*</b> marks a bench recomputed from picks and live points, because Bench Boost reports 0.</span>'}
+    <span><b>★ WIN</b> is the highest score that gameweek, net of hits; <b>▬ BENCH</b> is the most points left on the bench. Ties are shared.</span>
+    <span>A Bench Boost week cannot win the bench tally — the bench played, so nothing was left behind.</span>
     <span>Select a row for its transfers. Column headings sort.</span>
   </div>`;
 }

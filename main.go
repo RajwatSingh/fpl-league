@@ -26,7 +26,7 @@ func main() {
 		gw          = flag.Int("gw", 0, "gameweek to report on (default: current)")
 		season      = flag.Bool("season", false, "show season totals instead of a single gameweek")
 		detail      = flag.Bool("transfers", false, "list each transfer with player names")
-		sortBy      = flag.String("sort", "rank", "sort by: rank, gw, bench, hits, gwrank")
+		sortBy      = flag.String("sort", "rank", "sort by: rank, gw, bench, hits, gwrank, wins, benchwins")
 		maxManagers = flag.Int("max", 0, "cap the number of managers fetched (0 = all)")
 		concurrency = flag.Int("concurrency", 6, "simultaneous API requests")
 		asJSON      = flag.Bool("json", false, "emit JSON instead of a table")
@@ -105,19 +105,20 @@ func printGameweek(rep *fpl.Report, sortBy string, detail bool) {
 		}
 		bench := fmt.Sprintf("%d", r.Bench)
 		if r.BenchDerived {
-			bench += "*"
+			bench += "^"
 		}
 		hit := "-"
 		if r.Hit > 0 {
 			hit = fmt.Sprintf("-%d", r.Hit)
 		}
 		fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%s\t%s\t%s\t%d\t%s\t%d\n",
-			r.LeagueRank, trunc(r.Manager, 20), trunc(r.Entry, 20),
+			r.LeagueRank, trunc(r.Manager, 20)+badges(r), trunc(r.Entry, 18),
 			r.NetPoints, hit, bench, dash(r.Chip), r.Transfers, comma(r.GWRank), r.Total)
 	}
 	w.Flush()
 
-	fmt.Println("\nGW is net of the transfer hit. * = bench recomputed because Bench Boost reports 0.")
+	fmt.Println("\nGW is net of the transfer hit.  * = won this gameweek  ~ = most points benched")
+	fmt.Println("A bench value ending in ^ is recomputed because Bench Boost reports 0.")
 
 	if detail {
 		printTransferDetail(rep, rows)
@@ -154,7 +155,7 @@ func printSeason(rep *fpl.Report, sortBy string) {
 	sortSeason(rows, sortBy)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "#\tMANAGER\tTEAM\tTOTAL\tBENCHED\tHITS\tTF\tBEST GW\tCHIPS USED")
+	fmt.Fprintln(w, "#\tMANAGER\tTEAM\tTOTAL\tWINS\tBENCH W\tBENCHED\tHITS\tTF\tBEST GW\tCHIPS USED")
 	for _, r := range rows {
 		best := "—"
 		if r.BestGW > 0 {
@@ -164,12 +165,14 @@ func printSeason(rep *fpl.Report, sortBy string) {
 		if r.HitsTotal > 0 {
 			hits = fmt.Sprintf("-%d", r.HitsTotal)
 		}
-		fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%d\t%s\t%d\t%s\t%s\n",
-			r.LeagueRank, trunc(r.Manager, 20), trunc(r.Entry, 20),
-			r.Total, r.BenchTotal, hits, r.TransfersTotal, best, chipList(r.ChipsUsed))
+		fmt.Fprintf(w, "%d\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%d\t%s\t%s\n",
+			r.LeagueRank, trunc(r.Manager, 20), trunc(r.Entry, 18),
+			r.Total, count(r.GWWins), count(r.BenchWins), r.BenchTotal, hits,
+			r.TransfersTotal, best, chipList(r.ChipsUsed))
 	}
 	w.Flush()
-	fmt.Println("\nBENCHED is season-long points left on the bench (0 for any Bench Boost week).")
+	fmt.Println("\nWINS is gameweeks won on net points; BENCH W is gameweeks with the most points benched.")
+	fmt.Println("BENCHED is season-long points left on the bench (0 for any Bench Boost week).")
 }
 
 func chipList(chips []fpl.ChipPlay) string {
@@ -191,6 +194,10 @@ func sortGameweek(rows []fpl.ManagerGW, by string) {
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].Bench > rows[j].Bench })
 	case "hits":
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].Hit > rows[j].Hit })
+	case "wins":
+		sort.SliceStable(rows, func(i, j int) bool { return boolRank(rows[i].WonGW) > boolRank(rows[j].WonGW) })
+	case "benchwins":
+		sort.SliceStable(rows, func(i, j int) bool { return boolRank(rows[i].WonBench) > boolRank(rows[j].WonBench) })
 	case "gwrank":
 		sort.SliceStable(rows, func(i, j int) bool {
 			if rows[i].GWRank == 0 {
@@ -212,6 +219,10 @@ func sortSeason(rows []fpl.ManagerSeason, by string) {
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].BenchTotal > rows[j].BenchTotal })
 	case "hits":
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].HitsTotal > rows[j].HitsTotal })
+	case "wins":
+		sort.SliceStable(rows, func(i, j int) bool { return rows[i].GWWins > rows[j].GWWins })
+	case "benchwins":
+		sort.SliceStable(rows, func(i, j int) bool { return rows[i].BenchWins > rows[j].BenchWins })
 	default:
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].LeagueRank < rows[j].LeagueRank })
 	}
@@ -223,6 +234,34 @@ func trunc(s string, n int) string {
 		return string(r)
 	}
 	return string(r[:n-1]) + "…"
+}
+
+// badges marks the winners of the gameweek being displayed. Both are text, so
+// they survive a pipe into a file the same way the rest of the table does.
+func badges(r fpl.ManagerGW) string {
+	out := ""
+	if r.WonGW {
+		out += " *"
+	}
+	if r.WonBench {
+		out += " ~"
+	}
+	return out
+}
+
+// boolRank lets a "did they win this week" flag drive a sort.
+func boolRank(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func count(n int) string {
+	if n == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%d", n)
 }
 
 func dash(s string) string {

@@ -16,7 +16,7 @@ Defaults to league **580906** (Gullu League 3.0), so no flag is needed for it.
     ./fplleague -gw 1                 # a specific gameweek
     ./fplleague -transfers            # list each transfer by player name
     ./fplleague -season               # season totals + chips used
-    ./fplleague -sort bench           # rank, gw, bench, hits, gwrank
+    ./fplleague -sort bench           # rank, gw, bench, hits, gwrank, wins, benchwins
     ./fplleague -json                 # machine-readable
 
     ./fplleague -league 123456        # any other league
@@ -26,6 +26,23 @@ fetched), `-concurrency` (default 6), `-json`.
 
 The default lives in `defaultLeague` (main.go), which the CLI flag and the HTTP
 API share, and `DEFAULT_LEAGUE` in web/index.html. Change all three together.
+
+## Weekly honours
+
+Two tallies, both computed from data already fetched — no extra API calls.
+
+- **★ WIN** — highest score that gameweek, **net of hits**. That is the figure the
+  league table actually moves by, and the one a manager would argue about.
+- **▬ BENCH** — most points left on the bench that gameweek.
+
+Ties are shared: if two managers post the same top score, both get the win.
+
+A Bench Boost week cannot win the bench tally. The bench played, so nothing was
+left behind, and `points_on_bench` is 0 — which is the honest answer. Note this
+produces a display that looks contradictory until you know the rule: in GW1 of
+Gullu League, Ashav Shrestha shows a bench of `22^` and no bench badge, while
+Rajan Thapa shows `22` and takes it. The first 22 was scored by a boosted bench
+and counted; the second was genuinely thrown away.
 
 ## Two things the output accounts for
 

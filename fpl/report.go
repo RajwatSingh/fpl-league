@@ -49,6 +49,11 @@ type ManagerGW struct {
 	BenchDerived   bool       `json:"benchDerived"`
 	Transfers      int        `json:"transfers"`
 	TransferDetail []Transfer `json:"transferDetail,omitempty"`
+
+	// WonGW / WonBench mark the winners of this particular gameweek. Ties are
+	// shared, so more than one manager can carry either badge.
+	WonGW    bool `json:"wonGw"`
+	WonBench bool `json:"wonBench"`
 }
 
 // ManagerSeason aggregates a manager's whole season.
@@ -65,6 +70,12 @@ type ManagerSeason struct {
 	BestGW         int        `json:"bestGw"`
 	BestGWPoints   int        `json:"bestGwPoints"`
 	ChipsUsed      []ChipPlay `json:"chipsUsed"`
+
+	// Weekly honours, tallied across every gameweek played so far.
+	GWWins        int   `json:"gwWins"`
+	GWWinWeeks    []int `json:"gwWinWeeks"`
+	BenchWins     int   `json:"benchWins"`
+	BenchWinWeeks []int `json:"benchWinWeeks"`
 }
 
 // Report is everything the CLI renders.
@@ -225,6 +236,8 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		rep.Season = append(rep.Season, seasonFor(d))
 	}
 
+	awardWeeklyWins(data, rep)
+
 	sort.Slice(rep.Gameweek, func(i, j int) bool {
 		return rep.Gameweek[i].LeagueRank < rep.Gameweek[j].LeagueRank
 	})
@@ -232,6 +245,93 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		return rep.Season[i].LeagueRank < rep.Season[j].LeagueRank
 	})
 	return rep, nil
+}
+
+// awardWeeklyWins tallies the two weekly honours across every gameweek any
+// manager in the league has played. It reads only the histories already
+// fetched, so it costs no extra API calls.
+//
+// Gameweek winner is the highest score NET of the transfer hit — the figure the
+// league table moves by, and the one a manager would argue about.
+//
+// Bench winner is the most points left behind, which is points_on_bench as the
+// API reports it. That deliberately means a Bench Boost week cannot win it: the
+// bench played, so nothing was left behind. The displayed bench figure for such
+// a week is the recomputed haul (marked with *), which answers a different
+// question and is not what the tally counts.
+func awardWeeklyWins(data []entryData, rep *Report) {
+	// Collect every gameweek that appears in anyone's history.
+	weeks := map[int]bool{}
+	for _, d := range data {
+		for _, h := range d.history.Current {
+			weeks[h.Event] = true
+		}
+	}
+
+	type honours struct{ gw, bench []int }
+	byEntry := map[int]*honours{}
+	for _, d := range data {
+		byEntry[d.row.Entry] = &honours{}
+	}
+
+	for week := range weeks {
+		bestPts, bestBench := 0, 0
+		for _, d := range data {
+			h, ok := gwRow(d.history.Current, week)
+			if !ok {
+				continue
+			}
+			if h.Net() > bestPts {
+				bestPts = h.Net()
+			}
+			if h.PointsOnBench > bestBench {
+				bestBench = h.PointsOnBench
+			}
+		}
+		for _, d := range data {
+			h, ok := gwRow(d.history.Current, week)
+			if !ok {
+				continue
+			}
+			// A zero best means nobody scored / nobody benched anything, which
+			// is not a win worth recording.
+			if bestPts > 0 && h.Net() == bestPts {
+				byEntry[d.row.Entry].gw = append(byEntry[d.row.Entry].gw, week)
+			}
+			if bestBench > 0 && h.PointsOnBench == bestBench {
+				byEntry[d.row.Entry].bench = append(byEntry[d.row.Entry].bench, week)
+			}
+		}
+	}
+
+	for i := range rep.Season {
+		h := byEntry[rep.Season[i].EntryID]
+		if h == nil {
+			continue
+		}
+		sort.Ints(h.gw)
+		sort.Ints(h.bench)
+		rep.Season[i].GWWins, rep.Season[i].GWWinWeeks = len(h.gw), h.gw
+		rep.Season[i].BenchWins, rep.Season[i].BenchWinWeeks = len(h.bench), h.bench
+	}
+
+	for i := range rep.Gameweek {
+		h := byEntry[rep.Gameweek[i].EntryID]
+		if h == nil {
+			continue
+		}
+		rep.Gameweek[i].WonGW = contains(h.gw, rep.Event.ID)
+		rep.Gameweek[i].WonBench = contains(h.bench, rep.Event.ID)
+	}
+}
+
+func contains(xs []int, v int) bool {
+	for _, x := range xs {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }
 
 // trueBench sums live points for picks outside the XI. During a Bench Boost
