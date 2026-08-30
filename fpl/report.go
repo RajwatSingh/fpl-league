@@ -261,6 +261,14 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 			gw.OverallRank = h.OverallRank
 			gw.Bench = h.PointsOnBench
 			gw.Transfers = h.EventTransfers
+
+			// entry/history/ is cached by FPL and lags well behind live play -
+			// leagues-classic/standings/ recomputes event_total from live data
+			// on every request, so prefer it while the gameweek is still live.
+			if ev.IsCurrent && !ev.DataChecked {
+				gw.GrossPoints = d.row.EventTotal
+				gw.NetPoints = d.row.EventTotal - gw.Hit
+			}
 		}
 
 		chip := chipFor(d.history.Chips, ev.ID)
