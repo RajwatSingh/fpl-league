@@ -298,6 +298,20 @@ tbody tr.row.leader .rank { color: var(--gold); }
 .tally .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .tally .n.zero { color: var(--n4); }
 
+/* Season gameweek wins, carried beside the team name - the football
+   convention of stars over a crest, where the count is the honours and
+   not this week's result. Gold rather than the WIN badge's green because
+   it is the same kind of statement as the leader's gilt edge: a standing
+   achievement, not a live one. Deliberately borderless and unboxed so it
+   reads as an annotation on the name rather than a second badge competing
+   with the ★ WIN beside it.                                            */
+.stars {
+  font-family: var(--mono); font-size: 0.6875rem; font-weight: 600;
+  color: var(--gold); white-space: nowrap; margin-left: 0.45rem;
+  font-variant-numeric: tabular-nums;
+}
+.stars .s { margin-left: 0.1rem; }
+
 /* ── Bench meter ───────────────────────────────────────────────────────
    Magnitude across one series: one hue, length carries the value. Thin
    mark, rounded data-end, anchored to a baseline shared by every row so
@@ -734,7 +748,19 @@ function weekBadges(r) {
   const b = [];
   if (r.wonGw) b.push('<span class="badge win" title="Highest score in this gameweek">★ WIN</span>');
   if (r.wonBench) b.push('<span class="badge benchwin" title="Most points left on the bench this gameweek">▬ BENCH</span>');
-  return b.length ? `<span class="badges">${b.join("")}</span>` : "";
+  return (b.length ? `<span class="badges">${b.join("")}</span>` : "") + honours(r);
+}
+
+// Gameweek wins across the season, beside the team name. Always star plus
+// numeral, never repeated stars: a lone ★ reads as decoration rather than
+// as a count of one, and repeated glyphs sit badly next to the ★ WIN badge
+// a current winner already carries.
+function honours(r) {
+  const n = r.gwWins || 0;
+  if (!n) return "";
+  const weeks = (r.gwWinWeeks || []).map((w) => "GW" + w).join(", ");
+  const label = `${n} gameweek win${n === 1 ? "" : "s"} this season${weeks ? ` — ${weeks}` : ""}`;
+  return `<span class="stars" title="${esc(label)}">★<span class="s">${n}</span></span>`;
 }
 
 function seasonTally(n, cls, glyph, labels, verb) {
