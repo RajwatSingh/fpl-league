@@ -13,18 +13,21 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Martian+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ── Palette ───────────────────────────────────────────────────────────
-   Lifted verbatim from the portfolio's globals.css so the two surfaces
-   read as one system. Neutrals carry a blue-violet cast (hue 285) at low
-   chroma; accents sit at near-constant lightness and are separated by hue
-   angle, each with exactly one job.
+   Neutrals carry a blue-violet cast (hue 285) at low chroma; accents sit
+   at near-constant lightness and are separated by hue angle, each with
+   exactly one job.
 
    That last property means the accent set is a syntax theme, NOT a chart
    palette: run through the CVD validator, blue and purple are 0.4 ΔE
    apart for a deuteranope. So nothing here encodes a value by hue alone.
-   Magnitude uses one hue at varying length (the bench meter); state uses
-   a hue plus a glyph.                                                   */
+   State uses a hue plus a glyph.
+
+   n0 sits well below n1 rather than the portfolio's 0.04 step: this page
+   is one big table, and at that step the table dissolved into the page
+   instead of sitting on it. The deeper ground is what gives every raised
+   surface - strip, inputs, rows, cards - an edge to read against.        */
 :root {
-  --n0: oklch(0.19 0.018 285);
+  --n0: oklch(0.15 0.016 285); /* page ground: deliberately below n1 */
   --n1: oklch(0.23 0.020 285);
   --n2: oklch(0.27 0.022 285);
   --n3: oklch(0.32 0.022 285);
@@ -34,11 +37,14 @@
   --n7: oklch(0.84 0.012 285);
   --n8: oklch(0.95 0.008 285);
 
+  /* One job each. Cyan was retired: it encoded "players left to play",
+     which is a potential rather than a good outcome, so a positive-coded
+     hue misread it - that number is neutral now and the live dot carries
+     the in-progress signal instead. */
   --blue:   oklch(0.78 0.11 255);
   --purple: oklch(0.78 0.13 300);
   --green:  oklch(0.80 0.15 150);
   --orange: oklch(0.80 0.13 65);
-  --cyan:   oklch(0.82 0.10 200);
   --rose:   oklch(0.75 0.13 15);
   --gold:   oklch(0.83 0.15 95); /* the league leader only - a real table's one gilt edge */
 
@@ -141,14 +147,40 @@ button {
 button:hover:not(:disabled) { background: var(--n3); border-color: var(--n6); }
 button:disabled { opacity: 0.5; cursor: default; }
 
+/* Refresh is the one action on the page that isn't reachable any other
+   way: every filter beside it already refetches on change, so this exists
+   for the live gameweek case - pull the scores again, now. It gets the
+   only filled control treatment so the hierarchy tells the truth. */
+#go {
+  background: color-mix(in oklch, var(--blue) 20%, var(--n2));
+  border-color: color-mix(in oklch, var(--blue) 55%, transparent);
+  color: var(--n8);
+}
+#go:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--blue) 32%, var(--n2));
+  border-color: var(--blue);
+}
+
 .sortrow { display: flex; gap: 0.375rem; }
 .sortrow select { min-width: 9rem; }
 .sortrow button { min-width: 2.25rem; padding: 0.5rem 0; font-size: 0.875rem; }
 
+/* Selection and hover have to be different channels, not two steps on the
+   same neutral ramp - at n3 for both, a hovered tab was indistinguishable
+   from the selected one. Selection is a lighter fill plus an accent rule
+   along the bottom; hover stays a plain neutral lift. */
 .toggle { display: flex; border: 1px solid var(--n5); border-radius: var(--radius); overflow: hidden; }
-.toggle button { border: 0; border-radius: 0; background: transparent; color: var(--n6); white-space: nowrap; }
+.toggle button {
+  border: 0; border-radius: 0; background: transparent; color: var(--n6);
+  white-space: nowrap; box-shadow: inset 0 -2px 0 0 transparent;
+  transition: background 180ms var(--ease), color 180ms var(--ease), box-shadow 180ms var(--ease);
+}
 .toggle button + button { border-left: 1px solid var(--n5); }
-.toggle button[aria-pressed="true"] { background: var(--n3); color: var(--n8); }
+.toggle button[aria-pressed="true"],
+.toggle button[aria-pressed="true"]:hover {
+  background: var(--n4); color: var(--n8);
+  box-shadow: inset 0 -2px 0 0 var(--blue);
+}
 
 .phase-status {
   font-family: var(--mono); font-size: 0.625rem; font-weight: 500;
@@ -201,9 +233,15 @@ tbody tr.row.open { background: var(--n1); }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .dim { color: var(--n6); }
 .faint { color: var(--n4); }
-.gwpts { font-weight: 500; }
+/* Orange is this palette's numeral hue. It goes on the gameweek score and
+   nothing else in the table: that is the figure people refresh to watch,
+   and it is what the flash below animates, so hue and motion point at the
+   same number. Total is the anchor rather than the drama - brightest
+   neutral, so it still reads first among the plain columns without
+   competing with the live score at either end of the row. */
+.gwpts { font-weight: 500; color: var(--orange); }
+.total { color: var(--n8); font-weight: 500; }
 .hit { color: var(--rose); }
-.cyan-num { color: var(--cyan); font-size: 0.8125rem; }
 
 /* A live score changing between loads gets one green pulse - motion that
    depicts the thing that actually happened, rather than decoration. */
@@ -302,7 +340,18 @@ tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in ok
   transition: background 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
 }
 .opt-btn:hover { border-color: var(--n6); color: var(--n8); }
-.opt-btn[aria-pressed="true"] { background: var(--n3); border-color: var(--blue); color: var(--n8); }
+/* At this size a tinted background and a coloured border weren't enough to
+   find the selected pill at a glance, so selection flips the fill and the
+   text instead - the one inversion on the page, and unmistakable.
+
+   The :hover half is not redundant: the generic button:hover rule above is
+   (0,2,1) and would otherwise outrank a bare [aria-pressed] at (0,2,0),
+   repainting the selected pill as merely hovered - which is its state
+   almost every time anyone looks at it, having just clicked it. */
+.opt-btn[aria-pressed="true"],
+.opt-btn[aria-pressed="true"]:hover {
+  background: var(--blue); border-color: var(--blue); color: var(--n0); font-weight: 600;
+}
 
 .opt-content { margin-top: 0.9rem; }
 .opt-loading, .opt-error { font-family: var(--mono); font-size: 0.8125rem; color: var(--n6); }
@@ -336,7 +385,9 @@ tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in ok
 .fx-dot.upcoming { background: var(--n5); }
 .fx-dot.live { background: var(--green); animation: fxpulse 1.4s ease-in-out infinite; }
 .fx-dot.finished, .fx-dot.none { background: var(--n3); }
-@keyframes fxpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* Shallow on purpose: up to fifteen of these pulse at once in a squad, and
+   a deeper trough read as twitching rather than as "live". */
+@keyframes fxpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 .toplay-stats { display: flex; gap: 1.75rem; margin-bottom: 0.9rem; }
 .toplay-stat {
@@ -361,9 +412,21 @@ tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in ok
 
 /* ── Motion ────────────────────────────────────────────────────────────
    One entrance, and what it staggers is a league table arriving row by
-   row — the motion depicts its subject rather than decorating it.       */
+   row — the motion depicts its subject rather than decorating it.
+
+   It is scoped to .fresh, which render() only sets when new data has just
+   landed. render() rewrites the table's innerHTML on every sort, every row
+   expand and every option tab, and without that gate each of those replayed
+   a 25-row staggered entrance - half a second of wobble on interactions
+   that should feel instant.                                              */
 @keyframes rowin { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(var(--i) * 18ms); }
+tbody.fresh tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(var(--i) * 18ms); }
+
+/* Reorder. When the standings change, rows slide past each other rather
+   than teleporting - the one piece of motion here that depicts the thing
+   the whole page is about. Applied by flipRows() as a transform that is
+   then released; see the JS for why it can't be a CSS transition alone. */
+tbody tr.row.sliding { transition: transform 520ms var(--ease); }
 /* ── Phone ─────────────────────────────────────────────────────────────
    The controls were a wrapping flex row with 8.5rem minimums, which on a
    390px screen collapsed into cramped half-width dropdowns. They become a
@@ -513,7 +576,7 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
         <button type="button" id="view-monthly" aria-pressed="false">Monthly</button>
       </div>
     </div>
-    <button type="submit" id="go">Load</button>
+    <button type="submit" id="go" title="Fetch the latest scores">Refresh</button>
   </form>
 
   <main id="results">
@@ -610,10 +673,10 @@ const gwCols = [
   { key: "transfers", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
   { key: "captain", label: "Captain", cell: (r) => r.captain ? `<span class="dim">${esc(r.captain)}</span>` : '<span class="faint">—</span>' },
   { key: "toPlay", label: "To play", num: true, cell: (r) => r.played
-      ? `<span class="num${r.toPlay ? " cyan-num" : " dim"}">${r.toPlay}</span>`
+      ? `<span class="num${r.toPlay ? "" : " dim"}">${r.toPlay}</span>`
       : '<span class="faint">—</span>',
     title: (r) => r.played ? `${r.toPlay} yet to play · ${r.playingNow} playing now · ${r.finishedPlaying} finished (of ${r.squadCount})` : "not in this gameweek" },
-  { key: "total", label: "Total", num: true, cell: (r) => `<span class="num">${r.total}</span>` },
+  { key: "total", label: "Total", num: true, cell: (r) => `<span class="num total">${r.total}</span>` },
 ];
 
 const seasonCols = [
@@ -684,8 +747,55 @@ function chipLabel(n) {
   return { wildcard: "WC", freehit: "FH", bboost: "BB", "3xc": "TC" }[n] || n;
 }
 
+// Where every row sits right now, keyed by entry id. Captured before the
+// table is rewritten so flipRows() can work out what moved.
+function rowPositions() {
+  const map = new Map();
+  $("panel").querySelectorAll("tr.row[data-entry]").forEach((tr) => {
+    map.set(tr.dataset.entry, tr.getBoundingClientRect().top);
+  });
+  return map;
+}
+
+// FLIP: the rows are already in their final places by the time this runs,
+// so each one is thrown back to where it used to be with an instant
+// transform, then released on the next frame with the transition switched
+// on - which the browser renders as a slide from old position to new.
+// A plain CSS transition can't do this: the elements are destroyed and
+// recreated by innerHTML, so there is no continuous element to animate.
+function flipRows(before) {
+  if (!before.size || prefersReducedMotion()) return;
+  const moved = [];
+  $("panel").querySelectorAll("tr.row[data-entry]").forEach((tr) => {
+    const was = before.get(tr.dataset.entry);
+    if (was == null) return;
+    const delta = was - tr.getBoundingClientRect().top;
+    if (!delta) return;
+    tr.style.transform = `translateY(${delta}px)`;
+    moved.push(tr);
+  });
+  if (!moved.length) return;
+  requestAnimationFrame(() => {
+    for (const tr of moved) {
+      tr.classList.add("sliding");
+      tr.style.transform = "";
+    }
+    // Drop the transition once it has played, so a later render that sets
+    // a transform for a fresh FLIP isn't animated from this one's leftovers.
+    setTimeout(() => {
+      for (const tr of moved) tr.classList.remove("sliding");
+    }, 560);
+  });
+}
+
+function prefersReducedMotion() {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 // ── render ────────────────────────────────────────────────────────────
-function render() {
+// fresh marks a render that follows new data, which is the only one that
+// should replay the staggered row entrance.
+function render(fresh) {
   const rep = state.report;
   if (!rep) return;
 
@@ -739,11 +849,13 @@ function render() {
 
   const label = season ? `season to ${esc(rep.event.name)}` : esc(rep.event.name);
 
+  const before = rowPositions();
   $("panel").innerHTML = `
     <h2 class="eyebrow">${label}</h2>
     ${rep.provisional && !season ? '<p class="provisional">This gameweek is not finalised — bonus, gameweek ranks and bench points can still move.</p>' : ""}
-    <div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+    <div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody${fresh ? ' class="fresh"' : ""}>${body}</tbody></table></div>
     ${notes(season)}`;
+  flipRows(before);
 
   $("panel").querySelectorAll("th.sortable").forEach((th) => {
     const act = () => setSort(th.dataset.key);
@@ -820,7 +932,7 @@ function renderMonthly(rep) {
   $("panel").innerHTML = `
     <h2 class="eyebrow">${esc(ph.name)} <span class="phase-status">${ph.complete ? "final" : "provisional"}</span> <span class="dim">GW${ph.startEvent}–${ph.stopEvent}</span></h2>
     <div class="table-scroll"><table><thead><tr>
-      <th scope="col">#</th><th scope="col">Manager</th><th scope="col">Points</th>
+      <th scope="col">#</th><th scope="col">Team</th><th scope="col">Points</th>
     </tr></thead><tbody>${rows}</tbody></table></div>
     <div class="notes"><span>A month stays <b>provisional</b> until its last gameweek is finalised.</span></div>`;
   updateScrollHint();
@@ -1010,7 +1122,9 @@ async function load(push) {
     const stateText = (data.provisional ? `${data.event.name} · provisional` : data.event.name)
       + (countdown ? ` · ${countdown}` : "");
     setStatus("ok", data.league.name || `league ${league}`, stateText, `${data.gameweek.length} managers`);
-    render();
+    // Only a load replays the row entrance; a refresh of the same league and
+    // gameweek is a reorder, so it gets the FLIP slide instead of a restage.
+    render(!prev || prev.league.id !== data.league.id || prev.event.id !== data.event.id);
     state.flashed = null;
     if (isMobile()) setFiltersOpen(false);
   } catch (err) {
