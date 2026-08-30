@@ -397,8 +397,20 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		rep.Season = append(rep.Season, seasonFor(d))
 	}
 
-	awardWeeklyWins(data, rep)
-	rep.Monthly = monthlyPhases(data, boot.Phases, ev)
+	// entry/history/'s Net()/PointsOnBench are fine for every finished week,
+	// but for the current, still-live one they're the same stale/zeroed
+	// figures already corrected on rep.Gameweek above - every honour and
+	// monthly total that touches the live week reads from this instead of
+	// recomputing from the raw history a second time.
+	liveNet := map[int]int{}
+	liveBench := map[int]int{}
+	for _, g := range rep.Gameweek {
+		liveNet[g.EntryID] = g.NetPoints
+		liveBench[g.EntryID] = g.Bench
+	}
+
+	awardWeeklyWins(data, ev.ID, liveNet, liveBench, rep)
+	rep.Monthly = monthlyPhases(data, boot.Phases, ev, liveNet)
 	awardMonthlyWins(rep)
 
 	// Ship names only for the players that actually appear in this response.
@@ -424,7 +436,7 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 // monthlyPhases scores every non-Overall phase using the per-gameweek net
 // points already present in each manager's history. The season-long phase is
 // excluded by name, since the API does not guarantee its id stays 1.
-func monthlyPhases(data []entryData, phases []Phase, current Event) []MonthlyPhase {
+func monthlyPhases(data []entryData, phases []Phase, current Event, liveNet map[int]int) []MonthlyPhase {
 	var out []MonthlyPhase
 	for _, ph := range phases {
 		if strings.EqualFold(ph.Name, "Overall") {
@@ -440,7 +452,11 @@ func monthlyPhases(data []entryData, phases []Phase, current Event) []MonthlyPha
 			total, played := 0, false
 			for _, h := range d.history.Current {
 				if h.Event >= ph.StartEvent && h.Event <= ph.StopEvent {
-					total += h.Net()
+					net := h.Net()
+					if h.Event == current.ID {
+						net = liveNet[d.row.Entry]
+					}
+					total += net
 					played = true
 				}
 			}
@@ -507,7 +523,7 @@ func awardMonthlyWins(rep *Report) {
 // bench played, so nothing was left behind. The displayed bench figure for such
 // a week is the recomputed haul (marked with *), which answers a different
 // question and is not what the tally counts.
-func awardWeeklyWins(data []entryData, rep *Report) {
+func awardWeeklyWins(data []entryData, currentEvent int, liveNet, liveBench map[int]int, rep *Report) {
 	// Collect every gameweek that appears in anyone's history.
 	weeks := map[int]bool{}
 	for _, d := range data {
@@ -523,17 +539,22 @@ func awardWeeklyWins(data []entryData, rep *Report) {
 	}
 
 	for week := range weeks {
+		live := week == currentEvent
 		bestPts, bestBench := 0, 0
 		for _, d := range data {
 			h, ok := gwRow(d.history.Current, week)
 			if !ok {
 				continue
 			}
-			if h.Net() > bestPts {
-				bestPts = h.Net()
+			net, bench := h.Net(), h.PointsOnBench
+			if live {
+				net, bench = liveNet[d.row.Entry], liveBench[d.row.Entry]
 			}
-			if h.PointsOnBench > bestBench {
-				bestBench = h.PointsOnBench
+			if net > bestPts {
+				bestPts = net
+			}
+			if bench > bestBench {
+				bestBench = bench
 			}
 		}
 		for _, d := range data {
@@ -541,12 +562,16 @@ func awardWeeklyWins(data []entryData, rep *Report) {
 			if !ok {
 				continue
 			}
+			net, bench := h.Net(), h.PointsOnBench
+			if live {
+				net, bench = liveNet[d.row.Entry], liveBench[d.row.Entry]
+			}
 			// A zero best means nobody scored / nobody benched anything, which
 			// is not a win worth recording.
-			if bestPts > 0 && h.Net() == bestPts {
+			if bestPts > 0 && net == bestPts {
 				byEntry[d.row.Entry].gw = append(byEntry[d.row.Entry].gw, week)
 			}
-			if bestBench > 0 && h.PointsOnBench == bestBench {
+			if bestBench > 0 && bench == bestBench {
 				byEntry[d.row.Entry].bench = append(byEntry[d.row.Entry].bench, week)
 			}
 		}
