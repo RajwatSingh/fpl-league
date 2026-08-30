@@ -334,12 +334,27 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 			gw.Bench = h.PointsOnBench
 			gw.Transfers = h.EventTransfers
 
-			// entry/history/ is cached by FPL and lags well behind live play -
-			// leagues-classic/standings/ recomputes event_total from live data
-			// on every request, so prefer it while the gameweek is still live.
+			// entry/history/ is cached by FPL and lags well behind live play,
+			// so prefer a live figure while the gameweek is still live.
+			// Summing event/live/'s per-player points straight off the XI is
+			// the same computation the Team tab shows, so the two always
+			// agree; leagues-classic/standings/'s event_total is closer to
+			// live than history but is still one step removed, so it's only
+			// a fallback for when picks couldn't be fetched.
 			if live {
-				gw.GrossPoints = d.row.EventTotal
-				gw.NetPoints = d.row.EventTotal - gw.Hit
+				if d.picks != nil && livePoints != nil {
+					isBB := d.picks.ActiveChip == "bboost"
+					total := 0
+					for _, p := range d.picks.Picks {
+						if p.Position <= 11 || isBB {
+							total += livePoints[p.Element] * p.Multiplier
+						}
+					}
+					gw.GrossPoints = total
+				} else {
+					gw.GrossPoints = d.row.EventTotal
+				}
+				gw.NetPoints = gw.GrossPoints - gw.Hit
 			}
 		}
 
