@@ -78,6 +78,14 @@ func (c *Client) BuildTeamDetail(ctx context.Context, entryID, gw int) (*TeamDet
 
 	for _, p := range picks.Picks {
 		el := elements[p.Element]
+		raw := points[p.Element]
+		pts := raw * p.Multiplier
+		// A bench pick's multiplier is 0 (unless boosted), which would show
+		// as 0 points regardless of how the player actually did - exactly
+		// the number a manager wants to see to know what they left out.
+		if p.Position > 11 && p.Multiplier == 0 {
+			pts = raw
+		}
 		tp := TeamPlayer{
 			Element:       p.Element,
 			Name:          el.WebName,
@@ -86,7 +94,7 @@ func (c *Client) BuildTeamDetail(ctx context.Context, entryID, gw int) (*TeamDet
 			Multiplier:    p.Multiplier,
 			IsCaptain:     p.IsCaptain,
 			IsViceCaptain: p.IsViceCaptain,
-			Points:        points[p.Element] * p.Multiplier,
+			Points:        pts,
 			FixtureStatus: statusByTeam[el.Team],
 		}
 		if p.IsCaptain {

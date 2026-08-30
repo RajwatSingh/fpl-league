@@ -194,7 +194,7 @@ tbody tr.row.open { background: var(--n1); }
 .faint { color: var(--n4); }
 .gwpts { font-weight: 500; }
 .hit { color: var(--rose); }
-.gwrank { color: var(--cyan); font-size: 0.8125rem; }
+.cyan-num { color: var(--cyan); font-size: 0.8125rem; }
 
 /* Rank movement. Green/rose are 4.6 ΔE apart for a deuteranope, which is
    below even the conditional floor — so the arrow is load-bearing, not
@@ -525,7 +525,6 @@ function setStatus(kind, subject, text, right) {
 }
 
 // ── formatting ────────────────────────────────────────────────────────
-const fmt = (n) => (n == null ? "—" : n.toLocaleString("en-GB"));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function movement(rank, lastRank) {
@@ -550,12 +549,16 @@ const gwCols = [
   { key: "netPoints", label: "GW", sortLabel: "GW points", num: true, cell: (r) => r.played ? `<span class="num gwpts">${r.netPoints}</span>` : '<span class="faint">—</span>',
     title: (r) => r.played ? `${r.grossPoints} scored${r.hit ? ` − ${r.hit} hit` : ""} = ${r.netPoints}` : "not in this gameweek" },
   { key: "hit", label: "Hit", num: true, cell: (r) => r.hit ? `<span class="num hit">−${r.hit}</span>` : '<span class="faint">·</span>' },
-  { key: "bench", label: "Bench", num: true, cell: (r, ctx) => r.played
-      ? `<span class="bench">${meter(r.bench, ctx.maxBench)}<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" title="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}</span>`
+  { key: "bench", label: "Bench", num: true, cell: (r) => r.played
+      ? `<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" title="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}`
       : '<span class="faint">—</span>' },
   { key: "chip", label: "Chip", cell: (r) => r.chip ? `<span class="chip">${esc(r.chip)}</span>` : '<span class="faint">·</span>' },
   { key: "transfers", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
-  { key: "gwRank", label: "GW Rank", num: true, cell: (r) => r.gwRank ? `<span class="num gwrank">${fmt(r.gwRank)}</span>` : '<span class="faint">—</span>' },
+  { key: "captain", label: "Captain", cell: (r) => r.captain ? `<span class="dim">${esc(r.captain)}</span>` : '<span class="faint">—</span>' },
+  { key: "toPlay", label: "To play", num: true, cell: (r) => r.played
+      ? `<span class="num${r.toPlay ? " cyan-num" : " dim"}">${r.toPlay}</span>`
+      : '<span class="faint">—</span>',
+    title: (r) => r.played ? `${r.toPlay} yet to play · ${r.playingNow} playing now · ${r.finishedPlaying} finished (of ${r.squadCount})` : "not in this gameweek" },
   { key: "total", label: "Total", num: true, cell: (r) => `<span class="num">${r.total}</span>` },
 ];
 
@@ -582,7 +585,7 @@ const seasonCols = [
 // where the interesting end is the top. One definition, used by both the
 // dropdown and the column headers.
 function defaultDir(key) {
-  return key === "leagueRank" || key === "gwRank" ? 1 : -1;
+  return key === "leagueRank" ? 1 : -1;
 }
 
 function setSort(key) {
@@ -893,7 +896,8 @@ function notes(season) {
     <span><b>★ WIN</b> is the highest score that gameweek, net of hits; <b>▬ BENCH</b> is the most points left on the bench. Ties are shared.</span>
     <span>A Bench Boost week cannot win the bench tally — the bench played, so nothing was left behind.</span>
     <span>The <b>Monthly</b> tab shows FPL's own calendar-month phases, scored net of hits from the gameweeks already played.</span>
-    <span>Select a row for its transfers. Column headings sort.</span>
+    <span><b>To play</b> counts the starting XI only, or all 15 during a Bench Boost. Hover for the full breakdown.</span>
+    <span>Select a row for its transfers, team, captain and players left to play. Column headings sort.</span>
   </div>`;
 }
 

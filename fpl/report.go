@@ -51,6 +51,15 @@ type ManagerGW struct {
 	Transfers      int           `json:"transfers"`
 	TransferDetail []TransferOut `json:"transferDetail,omitempty"`
 
+	// Captain is who was picked, and the ToPlay/PlayingNow/FinishedPlaying
+	// counts are over the starting XI - or all 15 during a Bench Boost, the
+	// same set of players whose fixtures still count towards the score.
+	Captain         string `json:"captain"`
+	ToPlay          int    `json:"toPlay"`
+	PlayingNow      int    `json:"playingNow"`
+	FinishedPlaying int    `json:"finishedPlaying"`
+	SquadCount      int    `json:"squadCount"`
+
 	// WonGW / WonBench mark the winners of this particular gameweek. Ties are
 	// shared, so more than one manager can carry either badge.
 	WonGW    bool `json:"wonGw"`
@@ -151,7 +160,11 @@ type entryData struct {
 	row       StandingRow
 	history   *History
 	transfers []Transfer
-	err       error
+	// picks is nil when the gameweek 404s (not played yet, or joined the
+	// league after it) - that is not an error worth failing the report over,
+	// it just leaves Captain/ToPlay blank for that manager.
+	picks *PicksResponse
+	err   error
 }
 
 // BuildReport follows the fetch order in FPL_API_NOTES.md: bootstrap, then
@@ -197,6 +210,14 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 			if d.err == nil && opts.WithDetail {
 				d.transfers, d.err = c.EntryTransfers(ctx, row.Entry)
 			}
+			if d.err == nil {
+				picks, perr := c.EntryPicks(ctx, row.Entry, ev.ID)
+				if perr != nil && !NotFound(perr) {
+					d.err = perr
+				} else {
+					d.picks = picks
+				}
+			}
 			data[i] = d
 		}(i, row)
 	}
@@ -224,21 +245,35 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		rep.Events = append(rep.Events, ev)
 	}
 
+	elements := make(map[int]Element, len(boot.Elements))
+	for _, e := range boot.Elements {
+		elements[e.ID] = e
+	}
+
+	// Fixtures back the Captain/To-play columns: every pick's club is looked
+	// up against this gameweek's matches to say whether it has yet to kick
+	// off, is in progress, or is done.
+	fixtures, err := c.Fixtures(ctx, ev.ID)
+	if err != nil {
+		return nil, err
+	}
+	statusByTeam := teamFixtureStatus(fixtures)
+
 	// Bench points come from entry/history/'s points_on_bench, except:
 	//   - a Bench Boost week always reports 0 there, however long ago it was
 	//     played, so it must be recomputed from picks + live points; and
 	//   - while the gameweek itself is still live (not data_checked), that
 	//     cached history figure lags behind actual scoring the same way
 	//     grossPoints does above, so it needs the same live recompute.
-	// Both cases draw from one live points map, and the recompute is a
-	// per-manager picks fetch, so it runs under the same concurrency cap as
-	// the initial history fetch rather than one manager at a time.
+	// Both draw from one live points map. Every manager's picks are already
+	// in hand from the fetch loop above (Captain/To-play need them too), so
+	// this is pure computation now rather than a second round of fetches.
 	live := ev.IsCurrent && !ev.DataChecked
 
 	needsLive := live
 	if !needsLive {
 		for _, d := range data {
-			if chipFor(d.history.Chips, ev.ID) == "bboost" {
+			if d.picks != nil && d.picks.ActiveChip == "bboost" {
 				needsLive = true
 				break
 			}
@@ -260,28 +295,23 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		benchOverride[i] = -1
 	}
 	if livePoints != nil {
-		sem2 := make(chan struct{}, opts.Concurrency)
-		var wg2 sync.WaitGroup
 		for i, d := range data {
-			if _, ok := gwRow(d.history.Current, ev.ID); !ok {
+			if d.picks == nil {
 				continue
 			}
-			isBB := chipFor(d.history.Chips, ev.ID) == "bboost"
+			isBB := d.picks.ActiveChip == "bboost"
 			if !isBB && !live {
 				continue
 			}
-			wg2.Add(1)
-			go func(i, entry int, isBB bool) {
-				defer wg2.Done()
-				sem2 <- struct{}{}
-				defer func() { <-sem2 }()
-				if b, ok := c.trueBench(ctx, entry, ev.ID, livePoints); ok {
-					benchOverride[i] = b
-					benchIsBB[i] = isBB
+			total := 0
+			for _, p := range d.picks.Picks {
+				if p.Position > 11 {
+					total += livePoints[p.Element]
 				}
-			}(i, d.row.Entry, isBB)
+			}
+			benchOverride[i] = total
+			benchIsBB[i] = isBB
 		}
-		wg2.Wait()
 	}
 
 	for i, d := range data {
@@ -319,6 +349,27 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		if gw.Played && benchOverride[i] >= 0 {
 			gw.Bench = benchOverride[i]
 			gw.BenchDerived = benchIsBB[i]
+		}
+
+		if d.picks != nil {
+			isBB := d.picks.ActiveChip == "bboost"
+			for _, p := range d.picks.Picks {
+				if p.IsCaptain {
+					gw.Captain = elements[p.Element].WebName
+				}
+				if p.Position > 11 && !isBB {
+					continue // bench doesn't count towards the score, unless boosted
+				}
+				gw.SquadCount++
+				switch statusByTeam[elements[p.Element].Team] {
+				case "live":
+					gw.PlayingNow++
+				case "upcoming":
+					gw.ToPlay++
+				default: // "finished", "none", or a club with no fixture data
+					gw.FinishedPlaying++
+				}
+			}
 		}
 
 		for _, t := range d.transfers {
@@ -514,22 +565,6 @@ func contains(xs []int, v int) bool {
 		}
 	}
 	return false
-}
-
-// trueBench sums live points for picks outside the XI. During a Bench Boost
-// every pick has multiplier 1, so position is the only reliable discriminator.
-func (c *Client) trueBench(ctx context.Context, entryID, gw int, live map[int]int) (int, bool) {
-	picks, err := c.EntryPicks(ctx, entryID, gw)
-	if err != nil {
-		return 0, false
-	}
-	total := 0
-	for _, p := range picks.Picks {
-		if p.Position > 11 {
-			total += live[p.Element]
-		}
-	}
-	return total, true
 }
 
 func seasonFor(d entryData) ManagerSeason {
