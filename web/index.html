@@ -36,6 +36,7 @@
   --orange: oklch(0.80 0.13 65);
   --cyan:   oklch(0.82 0.10 200);
   --rose:   oklch(0.75 0.13 15);
+  --gold:   oklch(0.83 0.15 95); /* the league leader only - a real table's one gilt edge */
 
   --radius: 0.25rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -186,6 +187,10 @@ tbody tr.row:hover { background: var(--n1); }
 tbody tr.row.open { background: var(--n1); }
 
 .rank { font-family: var(--mono); color: var(--n6); font-size: 0.8125rem; }
+.rankcell { display: flex; flex-direction: column; gap: 0.1rem; }
+.rankline { display: flex; align-items: center; gap: 0.35rem; }
+/* Points behind the leader - the thing a rank number alone doesn't say. */
+.gap { font-family: var(--mono); font-size: 0.6875rem; color: var(--n5); }
 .who { display: flex; flex-direction: column; line-height: 1.3; }
 .who .name { color: var(--n8); }
 .who .team { font-size: 0.75rem; color: var(--n6); }
@@ -196,6 +201,14 @@ tbody tr.row.open { background: var(--n1); }
 .hit { color: var(--rose); }
 .cyan-num { color: var(--cyan); font-size: 0.8125rem; }
 
+/* A live score changing between loads gets one green pulse - motion that
+   depicts the thing that actually happened, rather than decoration. */
+@keyframes flashpulse {
+  from { background: color-mix(in oklch, var(--green) 35%, transparent); }
+  to { background: transparent; }
+}
+.gwpts.flash { animation: flashpulse 1.8s var(--ease) both; border-radius: 3px; padding: 0 0.25rem; margin: 0 -0.25rem; }
+
 /* Rank movement. Green/rose are 4.6 ΔE apart for a deuteranope, which is
    below even the conditional floor — so the arrow is load-bearing, not
    decoration, and the colour is a second channel on top of it. */
@@ -203,6 +216,13 @@ tbody tr.row.open { background: var(--n1); }
 .move.up { color: var(--green); }
 .move.down { color: var(--rose); }
 .move.flat { color: var(--n4); }
+
+/* ── Table drama ───────────────────────────────────────────────────────
+   A league table's whole point is the gap between people. The leader gets
+   this site's one gilt edge - a real table's convention, not a trophy
+   emoji - as an inset shadow so it costs no layout. */
+tbody tr.row.leader { box-shadow: inset 3px 0 0 0 var(--gold); }
+tbody tr.row.leader .rank { color: var(--gold); }
 
 /* Chips are categorical, but four hues from this palette would not
    survive CVD. One hue, and the two-letter label does the identifying. */
@@ -514,6 +534,10 @@ const state = {
   // row, and the /api/team responses backing team/captain/toplay, cached by
   // "entryId:gw" so switching tabs back and forth doesn't refetch.
   tab: new Map(), teamCache: new Map(),
+  // entryIds whose GW score changed since the last load - set just before
+  // the one render() that should flash them, then cleared, so re-sorting or
+  // reopening a row afterwards doesn't replay the animation.
+  flashed: null,
 };
 
 // ── status strip ──────────────────────────────────────────────────────
@@ -522,6 +546,20 @@ function setStatus(kind, subject, text, right) {
   $("subject").textContent = subject;
   $("state").textContent = text;
   $("count").textContent = right || "";
+}
+
+// Only meaningful before a deadline - once it's passed there's nothing left
+// to count down to, so this returns null rather than "0m to deadline".
+function deadlineCountdown(iso) {
+  const ms = new Date(iso) - Date.now();
+  if (!isFinite(ms) || ms <= 0) return null;
+  const totalMin = Math.floor(ms / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins = totalMin % 60;
+  if (days > 0) return `${days}d ${hours}h to deadline`;
+  if (hours > 0) return `${hours}h ${mins}m to deadline`;
+  return `${mins}m to deadline`;
 }
 
 // ── formatting ────────────────────────────────────────────────────────
@@ -541,12 +579,24 @@ function meter(value, max) {
   return `<span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span>`;
 }
 
+// The rank number alone says a position; it doesn't say the margin. Every
+// row but the leader's gets how many points behind they are - the number
+// that actually carries a league table's stakes.
+function rankCell(r, ctx, extra) {
+  const gap = r.leagueRank === 1 || ctx.leaderTotal == null
+    ? ""
+    : `<span class="gap">−${ctx.leaderTotal - r.total}</span>`;
+  return `<span class="rankcell"><span class="rankline"><span class="rank">${r.leagueRank}</span>${extra ? " " + extra : ""}</span>${gap}</span>`;
+}
+
 // ── column definitions ────────────────────────────────────────────────
 const gwCols = [
-  { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r) => `<span class="rank">${r.leagueRank}</span> ${movement(r.leagueRank, r.lastRank)}` },
-  { key: "manager", label: "Manager", cell: (r) =>
-      `<span class="who"><span class="name">${esc(r.manager)}${weekBadges(r)}</span><span class="team">${esc(r.entry)}</span></span>` },
-  { key: "netPoints", label: "GW", sortLabel: "GW points", num: true, cell: (r) => r.played ? `<span class="num gwpts">${r.netPoints}</span>` : '<span class="faint">—</span>',
+  { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r, ctx) => rankCell(r, ctx, movement(r.leagueRank, r.lastRank)) },
+  { key: "manager", label: "Team", cell: (r) =>
+      `<span class="who"><span class="name">${esc(r.entry)}${weekBadges(r)}</span><span class="team">${esc(r.manager)}</span></span>` },
+  { key: "netPoints", label: "GW", sortLabel: "GW points", num: true, cell: (r) => r.played
+      ? `<span class="num gwpts${state.flashed && state.flashed.has(r.entryId) ? " flash" : ""}">${r.netPoints}</span>`
+      : '<span class="faint">—</span>',
     title: (r) => r.played ? `${r.grossPoints} scored${r.hit ? ` − ${r.hit} hit` : ""} = ${r.netPoints}` : "not in this gameweek" },
   { key: "hit", label: "Hit", num: true, cell: (r) => r.hit ? `<span class="num hit">−${r.hit}</span>` : '<span class="faint">·</span>' },
   { key: "bench", label: "Bench", num: true, cell: (r) => r.played
@@ -563,8 +613,8 @@ const gwCols = [
 ];
 
 const seasonCols = [
-  { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r) => `<span class="rank">${r.leagueRank}</span>` },
-  { key: "manager", label: "Manager", cell: (r) => `<span class="who"><span class="name">${esc(r.manager)}</span><span class="team">${esc(r.entry)}</span></span>` },
+  { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r, ctx) => rankCell(r, ctx) },
+  { key: "manager", label: "Team", cell: (r) => `<span class="who"><span class="name">${esc(r.entry)}</span><span class="team">${esc(r.manager)}</span></span>` },
   { key: "total", label: "Total", num: true, cell: (r) => `<span class="num gwpts">${r.total}</span>` },
   { key: "gwWins", label: "Wins", sortLabel: "Gameweek wins", num: true, cell: (r) =>
       seasonTally(r.gwWins, "win", "★", r.gwWinWeeks && r.gwWinWeeks.map((w) => "GW" + w), "Gameweek wins:") },
@@ -646,7 +696,10 @@ function render() {
   const rows = [...(season ? rep.season : rep.gameweek)];
   const cols = columnsFor(state.view);
   const benchKey = season ? "benchTotal" : "bench";
-  const ctx = { maxBench: Math.max(1, ...rows.map((r) => r[benchKey] || 0)) };
+  const ctx = {
+    maxBench: Math.max(1, ...rows.map((r) => r[benchKey] || 0)),
+    leaderTotal: rows.length ? Math.max(...rows.map((r) => r.total)) : null,
+  };
 
   const { key, dir } = state.sort;
   rows.sort((a, b) => {
@@ -669,7 +722,9 @@ function render() {
       return `<td${t}>${c.cell(r, ctx)}</td>`;
     }).join("");
     const isOpen = state.open.has(r.entryId);
-    let html = `<tr class="row${isOpen ? " open" : ""}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-expanded="${isOpen}">${cells}</tr>`;
+    const isLeader = r.leagueRank === 1;
+    const rowClass = `row${isOpen ? " open" : ""}${isLeader ? " leader" : ""}`;
+    let html = `<tr class="${rowClass}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-expanded="${isOpen}">${cells}</tr>`;
     if (isOpen) html += menuRow(r, cols.length, rep, season);
     return html;
   }).join("");
@@ -750,10 +805,11 @@ function renderMonthly(rep) {
   }
   const ph = phases.find((p) => p.name === state.month) || phases[phases.length - 1];
 
+  const leaderPoints = ph.standings.length ? ph.standings[0].points : 0;
   const rows = ph.standings.map((r, i) => `
-    <tr class="row" style="--i:${Math.min(i, 30)}">
-      <td><span class="rank">${i + 1}</span></td>
-      <td><span class="who"><span class="name">${esc(r.manager)}${r.won ? '<span class="badges"><span class="badge win" title="Won this month">★ WIN</span></span>' : ""}</span><span class="team">${esc(r.entry)}</span></span></td>
+    <tr class="row${i === 0 ? " leader" : ""}" style="--i:${Math.min(i, 30)}">
+      <td><span class="rankcell"><span class="rankline"><span class="rank">${i + 1}</span></span>${i === 0 ? "" : `<span class="gap">−${leaderPoints - r.points}</span>`}</span></td>
+      <td><span class="who"><span class="name">${esc(r.entry)}${r.won ? '<span class="badges"><span class="badge win" title="Won this month">★ WIN</span></span>' : ""}</span><span class="team">${esc(r.manager)}</span></span></td>
       <td><span class="num gwpts">${r.points}</span></td>
     </tr>`).join("");
 
@@ -918,6 +974,21 @@ async function load(push) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
 
+    // A score that changed since the last look at this same league+gameweek
+    // gets one flash on the render that's about to happen - reloading a
+    // different gameweek, or the first load, has nothing to compare against.
+    const prev = state.report;
+    state.flashed = prev && prev.league.id === data.league.id && prev.event.id === data.event.id
+      ? new Set(
+          data.gameweek
+            .filter((r) => {
+              const before = prev.gameweek.find((p) => p.entryId === r.entryId);
+              return before && before.netPoints !== r.netPoints;
+            })
+            .map((r) => r.entryId)
+        )
+      : null;
+
     state.report = data;
     state.open.clear();
     state.tab.clear();
@@ -931,10 +1002,12 @@ async function load(push) {
       history.replaceState(null, "", url);
     }
 
-    setStatus("ok", data.league.name || `league ${league}`,
-      data.provisional ? `${data.event.name} · provisional` : data.event.name,
-      `${data.gameweek.length} managers`);
+    const countdown = deadlineCountdown(data.event.deadline_time);
+    const stateText = (data.provisional ? `${data.event.name} · provisional` : data.event.name)
+      + (countdown ? ` · ${countdown}` : "");
+    setStatus("ok", data.league.name || `league ${league}`, stateText, `${data.gameweek.length} managers`);
     render();
+    state.flashed = null;
     if (isMobile()) setFiltersOpen(false);
   } catch (err) {
     state.report = null;
