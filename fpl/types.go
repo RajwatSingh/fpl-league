@@ -248,3 +248,13 @@ func (l *LiveResponse) PointsByElement() map[int]int {
 	}
 	return m
 }
+
+// ---- fixtures/?event={gw} ----
+
+type Fixture struct {
+	Event    int  `json:"event"`
+	TeamH    int  `json:"team_h"`
+	TeamA    int  `json:"team_a"`
+	Started  bool `json:"started"`
+	Finished bool `json:"finished"`
+}

@@ -77,3 +77,12 @@ func (c *Client) EventLive(ctx context.Context, gw int) (*LiveResponse, error) {
 	}
 	return &l, nil
 }
+
+// Fixtures returns every fixture scheduled for the gameweek, in kickoff order.
+func (c *Client) Fixtures(ctx context.Context, gw int) ([]Fixture, error) {
+	var f []Fixture
+	if err := c.Get(ctx, fmt.Sprintf("fixtures/?event=%d", gw), &f); err != nil {
+		return nil, err
+	}
+	return f, nil
+}

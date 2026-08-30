@@ -52,10 +52,17 @@ type cacheEntry struct {
 	stored time.Time
 }
 
+type teamCacheEntry struct {
+	detail *fpl.TeamDetail
+	stored time.Time
+}
+
 type server struct {
-	client *fpl.Client
-	mu     sync.Mutex
-	cache  map[string]cacheEntry
+	client    *fpl.Client
+	mu        sync.Mutex
+	cache     map[string]cacheEntry
+	teamMu    sync.Mutex
+	teamCache map[string]teamCacheEntry
 }
 
 func serve(addr string, concurrency int) error {
@@ -64,11 +71,12 @@ func serve(addr string, concurrency int) error {
 		return err
 	}
 
-	s := &server{client: fpl.NewClient(), cache: map[string]cacheEntry{}}
+	s := &server{client: fpl.NewClient(), cache: map[string]cacheEntry{}, teamCache: map[string]teamCacheEntry{}}
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 	mux.HandleFunc("/api/report", s.handleReport(concurrency))
+	mux.HandleFunc("/api/team", s.handleTeam())
 
 	log.Printf("fpl-league-rank listening on http://localhost%s", addr)
 	return http.ListenAndServe(addr, mux)
@@ -135,6 +143,72 @@ func (s *server) handleReport(concurrency int) http.HandlerFunc {
 		s.store(key, rep)
 		writeJSON(w, rep)
 	}
+}
+
+// handleTeam serves one manager's squad for one gameweek - the data behind
+// the Team, Captain and Remaining-to-play options under a manager's name.
+// It is looked up by entry id directly rather than through a league, which
+// matches the underlying FPL API: an entry's picks are public regardless of
+// which league you found them through.
+func (s *server) handleTeam() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		entry, err := intParam(r, "entry", 0)
+		if err != nil || entry <= 0 {
+			writeErr(w, http.StatusBadRequest, "a numeric entry id is required")
+			return
+		}
+		gw, err := intParam(r, "gw", 0)
+		if err != nil || gw <= 0 {
+			writeErr(w, http.StatusBadRequest, "a numeric gw is required")
+			return
+		}
+
+		w.Header().Set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
+
+		key := fmt.Sprintf("%d/%d", entry, gw)
+		if det, ok := s.teamCached(key); ok {
+			writeJSON(w, det)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		det, err := s.client.BuildTeamDetail(ctx, entry, gw)
+		if err != nil {
+			status := http.StatusBadGateway
+			msg := err.Error()
+			if fpl.NotFound(err) {
+				status = http.StatusNotFound
+				msg = "no picks for that manager and gameweek - it may not have kicked off yet"
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				status = http.StatusGatewayTimeout
+				msg = "the FPL API took too long — retry"
+			}
+			writeErr(w, status, msg)
+			return
+		}
+
+		s.storeTeam(key, det)
+		writeJSON(w, det)
+	}
+}
+
+func (s *server) teamCached(key string) (*fpl.TeamDetail, bool) {
+	s.teamMu.Lock()
+	defer s.teamMu.Unlock()
+	e, ok := s.teamCache[key]
+	if !ok || time.Since(e.stored) > cacheTTL {
+		return nil, false
+	}
+	return e.detail, true
+}
+
+func (s *server) storeTeam(key string, det *fpl.TeamDetail) {
+	s.teamMu.Lock()
+	defer s.teamMu.Unlock()
+	s.teamCache[key] = teamCacheEntry{detail: det, stored: time.Now()}
 }
 
 func (s *server) cached(key string) (*fpl.Report, bool) {

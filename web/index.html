@@ -247,11 +247,79 @@ tbody tr.row.open { background: var(--n1); }
 .derived { color: var(--orange); font-size: 0.75rem; }
 
 /* ── Transfer detail ───────────────────────────────────────────────────*/
-tr.detail td { padding: 0 0.6rem 0.75rem; border-bottom: 1px solid color-mix(in oklch, var(--n4) 45%, transparent); }
+tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in oklch, var(--n4) 45%, transparent); }
 .tf-list { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-family: var(--mono); font-size: 0.75rem; color: var(--n7); }
 .tf-list .out { color: var(--n6); }
 .tf-list .arrow { color: var(--n4); margin: 0 0.3rem; }
 .tf-none { font-size: 0.75rem; color: var(--n6); font-style: italic; }
+
+/* ── Manager menu ─────────────────────────────────────────────────────
+   A row opens onto four options rather than straight into content - a
+   name is pressed to ask "what about this manager", and the option is a
+   second, more specific question. Both steps, and everything inside the
+   content they reveal, arrive with the same staggered fade+blur entrance
+   the portfolio's team sheet uses for a squad appearing line by line. */
+@keyframes cardin {
+  from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+/* Pinned to the scroll container's left edge and sized to it in JS
+   (fitDetailWraps), so content wraps to what's actually visible instead of
+   the full, much wider, ten-column table underneath it. */
+.opt-wrap { position: sticky; left: 0; box-sizing: border-box; }
+
+.opt-menu { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.opt-btn {
+  font-family: var(--mono); font-size: 0.75rem; font-weight: 500;
+  background: var(--n2); color: var(--n7);
+  border: 1px solid var(--n5); border-radius: var(--radius);
+  padding: 0.45rem 0.8rem; cursor: pointer;
+  animation: cardin 280ms var(--ease) both; animation-delay: calc(var(--i) * 40ms);
+  transition: background 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+}
+.opt-btn:hover { border-color: var(--n6); color: var(--n8); }
+.opt-btn[aria-pressed="true"] { background: var(--n3); border-color: var(--blue); color: var(--n8); }
+
+.opt-content { margin-top: 0.9rem; }
+.opt-loading, .opt-error { font-family: var(--mono); font-size: 0.8125rem; color: var(--n6); }
+.opt-error { color: var(--rose); }
+
+.squad-group { margin-bottom: 0.85rem; }
+.squad-group:last-child { margin-bottom: 0; }
+.squad-label {
+  font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--n5); margin-bottom: 0.4rem;
+}
+.squad-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.pcard {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: var(--n1); border: 1px solid var(--n4); border-radius: var(--radius);
+  padding: 0.35rem 0.55rem; font-size: 0.8125rem;
+  animation: cardin 320ms var(--ease) both; animation-delay: calc(var(--i) * 35ms);
+}
+.pcard.bench { opacity: 0.7; }
+.pcard .pname { color: var(--n8); }
+.pcard .pteam { color: var(--n6); font-size: 0.6875rem; font-family: var(--mono); }
+.pcard .ppts { font-family: var(--mono); color: var(--orange); font-variant-numeric: tabular-nums; margin-left: 0.1rem; }
+.pcard .ctag {
+  font-family: var(--mono); font-size: 0.625rem; font-weight: 700; line-height: 1;
+  color: var(--n0); background: var(--orange); border-radius: 2px; padding: 0.15rem 0.3rem;
+}
+.pcard .ctag.vtag { background: var(--n5); }
+
+.fx-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.fx-dot.upcoming { background: var(--n5); }
+.fx-dot.live { background: var(--green); animation: fxpulse 1.4s ease-in-out infinite; }
+.fx-dot.finished, .fx-dot.none { background: var(--n3); }
+@keyframes fxpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.toplay-stats { display: flex; gap: 1.75rem; margin-bottom: 0.9rem; }
+.toplay-stat {
+  animation: cardin 280ms var(--ease) both; animation-delay: calc(var(--i) * 60ms);
+}
+.toplay-stat .n { font-family: var(--mono); font-size: 1.375rem; color: var(--n8); }
+.toplay-stat .l { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--n6); }
 
 /* ── Messages ──────────────────────────────────────────────────────────
    The portfolio renders nothing when the FPL API is down, because no
@@ -327,6 +395,10 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
 
   .sortrow select { min-width: 0; flex: 1; }
   .sortrow button { width: 2.75rem; min-width: 2.75rem; flex: none; padding: 0; }
+
+  /* Otherwise inherits the generic mobile button rule's width:100%, which
+     as a flex-basis forces every option onto its own full-width row. */
+  .opt-btn { width: auto; min-height: 2.375rem; padding: 0.4rem 0.65rem; }
 
   .toggle { width: 100%; }
   .toggle button { flex: 1; }
@@ -436,7 +508,13 @@ const $ = (id) => document.getElementById(id);
 // screen to explain it. An explicit ?league= still overrides.
 const DEFAULT_LEAGUE = 580906;
 
-const state = { view: "gw", sort: { key: "leagueRank", dir: 1 }, report: null, open: new Set() };
+const state = {
+  view: "gw", sort: { key: "leagueRank", dir: 1 }, report: null, open: new Set(),
+  // Which option (transfers/team/captain/toplay) is showing under each open
+  // row, and the /api/team responses backing team/captain/toplay, cached by
+  // "entryId:gw" so switching tabs back and forth doesn't refetch.
+  tab: new Map(), teamCache: new Map(),
+};
 
 // ── status strip ──────────────────────────────────────────────────────
 function setStatus(kind, subject, text, right) {
@@ -589,7 +667,7 @@ function render() {
     }).join("");
     const isOpen = state.open.has(r.entryId);
     let html = `<tr class="row${isOpen ? " open" : ""}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-expanded="${isOpen}">${cells}</tr>`;
-    if (isOpen) html += detailRow(r, cols.length, rep);
+    if (isOpen) html += menuRow(r, cols.length, rep, season);
     return html;
   }).join("");
 
@@ -621,7 +699,33 @@ function render() {
     tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
   });
 
+  $("panel").querySelectorAll(".opt-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const entryId = Number(btn.dataset.entry);
+      const tab = btn.dataset.tab;
+      state.tab.set(entryId, state.tab.get(entryId) === tab ? null : tab);
+      render();
+    });
+  });
+
   updateScrollHint();
+  fitDetailWraps();
+}
+
+// The table can be far wider than the viewport once it's scrolling
+// sideways, and a colspan cell's content is laid out against that full
+// width, not what's actually visible. Sizing each wrap explicitly to the
+// scroll container's own clientWidth is what makes squad cards and option
+// buttons wrap at the screen edge instead of running off it.
+function fitDetailWraps() {
+  const scroller = $("panel").querySelector(".table-scroll");
+  if (!scroller) return;
+  $("panel").querySelectorAll(".opt-wrap").forEach((el) => {
+    const pad = el.parentElement; // the td, whose own horizontal padding must come off
+    const px = parseFloat(getComputedStyle(pad).paddingLeft) + parseFloat(getComputedStyle(pad).paddingRight);
+    el.style.width = Math.max(0, scroller.clientWidth - px) + "px";
+  });
 }
 
 // Phases arrive in calendar order (see monthlyPhases in fpl/report.go), so the
@@ -659,14 +763,125 @@ function renderMonthly(rep) {
   updateScrollHint();
 }
 
-function detailRow(r, span, rep) {
+// A row opens onto four options rather than straight into content. Team,
+// Captain and To play all read the same /api/team payload for this report's
+// gameweek - one lazy fetch per manager, cached so switching between them
+// doesn't refetch. Transfers needs no fetch (it's already on the row), so
+// it's the only option season/monthly views don't offer - there's no single
+// gameweek's transfers to show once rows span the whole season.
+const OPTIONS = [
+  { key: "transfers", label: "Transfers", gwOnly: true },
+  { key: "team", label: "Team" },
+  { key: "captain", label: "Captain" },
+  { key: "toplay", label: "To play" },
+];
+
+function menuRow(r, span, rep, season) {
+  const opts = OPTIONS.filter((o) => !season || !o.gwOnly);
+  const active = state.tab.get(r.entryId);
+
+  const menu = `<div class="opt-menu">${opts.map((o, i) => `
+    <button type="button" class="opt-btn" style="--i:${i}" data-entry="${r.entryId}" data-tab="${o.key}" aria-pressed="${active === o.key}">${esc(o.label)}</button>
+  `).join("")}</div>`;
+
+  let content = "";
+  if (active === "transfers") content = transfersContent(r, rep);
+  else if (active === "team" || active === "captain" || active === "toplay") content = teamContent(r, rep, active);
+
+  return `<tr class="detail"><td colspan="${span}"><div class="opt-wrap">${menu}${content ? `<div class="opt-content">${content}</div>` : ""}</div></td></tr>`;
+}
+
+function transfersContent(r, rep) {
   const tf = r.transferDetail || [];
-  const inner = tf.length
+  return tf.length
     ? `<div class="tf-list">${tf.map((t) =>
         `<span><span class="out">${esc(rep.playerNames[t.out] || t.out)}</span><span class="arrow">→</span>${esc(rep.playerNames[t.in] || t.in)}</span>`
       ).join("")}</div>`
     : `<p class="tf-none">No transfers this gameweek.</p>`;
-  return `<tr class="detail"><td colspan="${span}">${inner}</td></tr>`;
+}
+
+// Fetches (once) and caches the squad behind Team/Captain/To play. Firing a
+// render() from inside the .then() is what turns a bare loading line into
+// the populated, animated content once the response lands.
+function teamKey(entryId, rep) { return `${entryId}:${rep.event.id}`; }
+
+function ensureTeamData(entryId, rep) {
+  const key = teamKey(entryId, rep);
+  if (state.teamCache.has(key)) return state.teamCache.get(key);
+  const slot = { status: "loading" };
+  state.teamCache.set(key, slot);
+  fetch(`/api/team?entry=${entryId}&gw=${rep.event.id}`)
+    .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) throw new Error(data.error || "request failed");
+      state.teamCache.set(key, { status: "ready", data });
+    })
+    .catch((err) => state.teamCache.set(key, { status: "error", message: err.message }))
+    .finally(() => { if (state.report) render(); });
+  return slot;
+}
+
+function teamContent(r, rep, tab) {
+  const slot = ensureTeamData(r.entryId, rep);
+  if (slot.status === "loading") return `<p class="opt-loading">loading squad…</p>`;
+  if (slot.status === "error") return `<p class="opt-error">${esc(slot.message)}</p>`;
+  if (tab === "team") return squadView(slot.data);
+  if (tab === "captain") return captainView(slot.data);
+  return toPlayView(slot.data);
+}
+
+const FX_LABEL = { upcoming: "Yet to play", live: "Playing now", finished: "Finished", none: "No fixture" };
+
+function playerCard(p, i, bench) {
+  const tag = p.isCaptain
+    ? '<span class="ctag" title="Captain">C</span>'
+    : p.isViceCaptain ? '<span class="ctag vtag" title="Vice-captain">V</span>' : "";
+  return `<span class="pcard${bench ? " bench" : ""}" style="--i:${i}">
+    <span class="fx-dot ${p.fixtureStatus}" title="${esc(FX_LABEL[p.fixtureStatus] || p.fixtureStatus)}" aria-hidden="true"></span>
+    <span class="pname">${esc(p.name)}</span>
+    <span class="pteam">${esc(p.team)}</span>
+    ${tag}
+    <span class="ppts">${p.points}</span>
+  </span>`;
+}
+
+function squadView(d) {
+  let i = 0;
+  const groups = ["GKP", "DEF", "MID", "FWD"].map((pos) => {
+    const players = d.starters.filter((p) => p.position === pos);
+    if (!players.length) return "";
+    return `<div class="squad-group"><div class="squad-label">${pos}</div><div class="squad-row">${
+      players.map((p) => playerCard(p, i++)).join("")}</div></div>`;
+  }).join("");
+  const bench = `<div class="squad-group"><div class="squad-label">Bench</div><div class="squad-row">${
+    d.bench.map((p) => playerCard(p, i++, true)).join("")}</div></div>`;
+  const chipNote = d.chip
+    ? `<p class="opt-loading">${esc(d.chip)} played this gameweek${d.chip === "BB" ? " — bench points count." : "."}</p>` : "";
+  return `${chipNote}${groups}${bench}`;
+}
+
+function captainView(d) {
+  const card = (p, label) => p
+    ? `<div class="squad-group"><div class="squad-label">${esc(label)}</div><div class="squad-row">${playerCard(p, 0)}</div></div>`
+    : "";
+  return card(d.captain, `Captain (${d.captain ? d.captain.multiplier : 1}×)`) + card(d.vice, "Vice-captain");
+}
+
+function toPlayView(d) {
+  const stat = (n, l, i) => `<div class="toplay-stat" style="--i:${i}"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`;
+  const relevant = d.chip === "BB" ? [...d.starters, ...d.bench] : d.starters;
+  const upcoming = relevant.filter((p) => p.fixtureStatus === "upcoming");
+  const live = relevant.filter((p) => p.fixtureStatus === "live");
+  const list = (players, label) => players.length
+    ? `<div class="squad-group"><div class="squad-label">${esc(label)}</div><div class="squad-row">${
+        players.map((p, i) => playerCard(p, i)).join("")}</div></div>`
+    : "";
+  return `
+    <div class="toplay-stats">${stat(d.toPlay, "yet to play", 0)}${stat(d.live, "playing now", 1)}${stat(d.finished, "finished", 2)}</div>
+    <p class="tf-none">${d.ofTotal} players count this gameweek${d.chip === "BB" ? " — Bench Boost, bench included" : ""}.</p>
+    ${list(upcoming, "Yet to play")}
+    ${list(live, "Playing now")}
+  `;
 }
 
 function notes(season) {
@@ -701,6 +916,8 @@ async function load(push) {
 
     state.report = data;
     state.open.clear();
+    state.tab.clear();
+    state.teamCache.clear();
     fillGameweeks(data);
 
     if (push) {
