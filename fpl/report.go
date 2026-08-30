@@ -224,25 +224,67 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		rep.Events = append(rep.Events, ev)
 	}
 
-	// Managers on a Bench Boost report points_on_bench as 0. Recover the real
-	// figure from picks + live, but only fetch live if someone actually used it.
-	var livePoints map[int]int
-	needsLive := false
-	for _, d := range data {
-		if chipFor(d.history.Chips, ev.ID) == "bboost" {
-			needsLive = true
-			break
+	// Bench points come from entry/history/'s points_on_bench, except:
+	//   - a Bench Boost week always reports 0 there, however long ago it was
+	//     played, so it must be recomputed from picks + live points; and
+	//   - while the gameweek itself is still live (not data_checked), that
+	//     cached history figure lags behind actual scoring the same way
+	//     grossPoints does above, so it needs the same live recompute.
+	// Both cases draw from one live points map, and the recompute is a
+	// per-manager picks fetch, so it runs under the same concurrency cap as
+	// the initial history fetch rather than one manager at a time.
+	live := ev.IsCurrent && !ev.DataChecked
+
+	needsLive := live
+	if !needsLive {
+		for _, d := range data {
+			if chipFor(d.history.Chips, ev.ID) == "bboost" {
+				needsLive = true
+				break
+			}
 		}
 	}
+
+	var livePoints map[int]int
 	if needsLive {
-		live, err := c.EventLive(ctx, ev.ID)
+		liveResp, err := c.EventLive(ctx, ev.ID)
 		if err != nil {
 			return nil, err
 		}
-		livePoints = live.PointsByElement()
+		livePoints = liveResp.PointsByElement()
 	}
 
-	for _, d := range data {
+	benchOverride := make([]int, len(data))
+	benchIsBB := make([]bool, len(data))
+	for i := range benchOverride {
+		benchOverride[i] = -1
+	}
+	if livePoints != nil {
+		sem2 := make(chan struct{}, opts.Concurrency)
+		var wg2 sync.WaitGroup
+		for i, d := range data {
+			if _, ok := gwRow(d.history.Current, ev.ID); !ok {
+				continue
+			}
+			isBB := chipFor(d.history.Chips, ev.ID) == "bboost"
+			if !isBB && !live {
+				continue
+			}
+			wg2.Add(1)
+			go func(i, entry int, isBB bool) {
+				defer wg2.Done()
+				sem2 <- struct{}{}
+				defer func() { <-sem2 }()
+				if b, ok := c.trueBench(ctx, entry, ev.ID, livePoints); ok {
+					benchOverride[i] = b
+					benchIsBB[i] = isBB
+				}
+			}(i, d.row.Entry, isBB)
+		}
+		wg2.Wait()
+	}
+
+	for i, d := range data {
 		gw := ManagerGW{
 			EntryID:    d.row.Entry,
 			Entry:      d.row.EntryName,
@@ -265,7 +307,7 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 			// entry/history/ is cached by FPL and lags well behind live play -
 			// leagues-classic/standings/ recomputes event_total from live data
 			// on every request, so prefer it while the gameweek is still live.
-			if ev.IsCurrent && !ev.DataChecked {
+			if live {
 				gw.GrossPoints = d.row.EventTotal
 				gw.NetPoints = d.row.EventTotal - gw.Hit
 			}
@@ -274,11 +316,9 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 		chip := chipFor(d.history.Chips, ev.ID)
 		gw.Chip = ChipLabel(chip)
 
-		if chip == "bboost" && livePoints != nil && gw.Played {
-			if b, ok := c.trueBench(ctx, d.row.Entry, ev.ID, livePoints); ok {
-				gw.Bench = b
-				gw.BenchDerived = true
-			}
+		if gw.Played && benchOverride[i] >= 0 {
+			gw.Bench = benchOverride[i]
+			gw.BenchDerived = benchIsBB[i]
 		}
 
 		for _, t := range d.transfers {

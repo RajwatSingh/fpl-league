@@ -283,16 +283,36 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
    does not zoom back out — the single most common cause of a form feeling
    broken on an iPhone. Everything also gets a 44px minimum height, which
    is Apple's minimum touch target; the old 0.5rem padding gave 34px.     */
+/* The filters toggle only exists as a mobile affordance — on desktop the
+   form is always visible and this stays display:none. */
+.filters-toggle { display: none; }
+
 @media (max-width: 640px) {
   .wrap { padding: 1.25rem 0.875rem 3rem; }
+
+  /* Collapsed by default: the form used to occupy the entire first screen,
+     pushing the table below the fold on every load. Tucking it behind a
+     summary button means results are visible immediately, and the button
+     itself remains the way back in to change league/gameweek/sort. */
+  .filters-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; margin-top: 1.25rem;
+    font-family: var(--mono); font-size: 0.75rem; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--n7);
+    background: var(--n1); border: 1px solid var(--n5); border-radius: var(--radius);
+    padding: 0.65rem 0.875rem; min-height: 2.75rem;
+  }
+  .filters-toggle .ft-caret { color: var(--n5); transition: transform 200ms var(--ease); }
+  .filters-toggle[aria-expanded="true"] .ft-caret { transform: rotate(180deg); }
 
   .controls {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem 0.625rem;
     align-items: end;
-    margin: 1.25rem 0 1.5rem;
+    margin: 0.75rem 0 1.5rem;
   }
+  .controls.collapsed { display: none; }
   .f-league, .f-sort, .f-month, .f-view, #go { grid-column: 1 / -1; }
   .toggle button { font-size: 0.8125rem; padding: 0.5rem 0.3rem; }
 
@@ -316,6 +336,28 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
   table { font-size: 0.8125rem; }
   tbody td, thead th { padding-left: 0.45rem; padding-right: 0.45rem; }
   .strip { font-size: 0.6875rem; }
+
+  /* Rank and manager pin to the left edge while the rest of the row scrolls
+     underneath, so a name never disappears off-screen while you're reading
+     its numbers - the single biggest complaint with a wide sideways table. */
+  .table-scroll { position: relative; }
+  thead th:nth-child(1), thead th:nth-child(2),
+  tbody td:nth-child(1), tbody td:nth-child(2) {
+    position: sticky; background: var(--n0); z-index: 1;
+  }
+  thead th:nth-child(1), tbody td:nth-child(1) { left: 0; min-width: 3rem; }
+  thead th:nth-child(2), tbody td:nth-child(2) { left: 3rem; box-shadow: 1px 0 0 var(--n4); }
+  tbody tr.row:hover td:nth-child(1), tbody tr.row:hover td:nth-child(2),
+  tbody tr.row.open td:nth-child(1), tbody tr.row.open td:nth-child(2) { background: var(--n1); }
+
+  /* A right-edge shadow signals there is more to scroll to; a gradient into
+     the matching background colour would be invisible here, so this darkens
+     the edge directly instead. It clears once scrolled to the end. */
+  .table-scroll.has-overflow {
+    box-shadow: inset -1.75rem 0 1rem -1rem rgba(0, 0, 0, 0.6);
+    transition: box-shadow 150ms var(--ease);
+  }
+  .table-scroll.has-overflow.at-end { box-shadow: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -334,6 +376,10 @@ tbody tr.row { animation: rowin 320ms var(--ease) both; animation-delay: calc(va
     <span class="state" id="state">idle</span>
     <span class="right" id="count"></span>
   </header>
+
+  <button type="button" class="filters-toggle" id="filters-toggle" aria-expanded="true" aria-controls="controls">
+    <span>Filters</span><span class="ft-caret" aria-hidden="true">▾</span>
+  </button>
 
   <form class="controls" id="controls">
     <div class="field f-league">
@@ -574,6 +620,8 @@ function render() {
     tr.addEventListener("click", act);
     tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
   });
+
+  updateScrollHint();
 }
 
 // Phases arrive in calendar order (see monthlyPhases in fpl/report.go), so the
@@ -608,6 +656,7 @@ function renderMonthly(rep) {
       <th scope="col">#</th><th scope="col">Manager</th><th scope="col">Points</th>
     </tr></thead><tbody>${rows}</tbody></table></div>
     <div class="notes"><span>A month stays <b>provisional</b> until its last gameweek is finalised.</span></div>`;
+  updateScrollHint();
 }
 
 function detailRow(r, span, rep) {
@@ -665,6 +714,7 @@ async function load(push) {
       data.provisional ? `${data.event.name} · provisional` : data.event.name,
       `${data.gameweek.length} managers`);
     render();
+    if (isMobile()) setFiltersOpen(false);
   } catch (err) {
     state.report = null;
     setStatus("err", `league ${league}`, "failed", "");
@@ -685,8 +735,50 @@ function fillGameweeks(data) {
   sel.value = chosen;
 }
 
+// ── filters toggle (mobile) ──────────────────────────────────────────
+const isMobile = () => matchMedia("(max-width: 640px)").matches;
+
+function setFiltersOpen(open) {
+  $("filters-toggle").setAttribute("aria-expanded", String(open));
+  $("controls").classList.toggle("collapsed", !open);
+}
+
+$("filters-toggle").addEventListener("click", () => {
+  setFiltersOpen($("filters-toggle").getAttribute("aria-expanded") !== "true");
+});
+
+// ── table scroll hint ────────────────────────────────────────────────
+// Marks the scroll container so the right-edge fade only shows while
+// there's more to see, and disappears once scrolled to the end.
+function updateScrollHint() {
+  const el = $("panel").querySelector(".table-scroll");
+  if (!el) return;
+  const canScroll = el.scrollWidth > el.clientWidth + 1;
+  el.classList.toggle("has-overflow", canScroll);
+  const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+  el.classList.toggle("at-end", atEnd);
+  el.addEventListener("scroll", () => {
+    el.classList.toggle("at-end", el.scrollLeft >= el.scrollWidth - el.clientWidth - 1);
+  }, { once: true });
+}
+
 // ── wiring ────────────────────────────────────────────────────────────
 $("controls").addEventListener("submit", (e) => { e.preventDefault(); load(true); });
+
+// Gameweek and Managers pick a new report from the server, so - unlike sort,
+// view and month, which just re-render what's already loaded - they need a
+// fresh fetch. Firing it on change (rather than waiting on the Load button)
+// is what makes them feel like the rest of the "live" filters.
+$("gw").addEventListener("change", () => { if ($("league").value) load(true); });
+$("max").addEventListener("change", () => { if ($("league").value) load(true); });
+
+// League ID is free text, so it can't fire on every keystroke like a select
+// does - firing on blur (leaving the field) is the closest equivalent, and
+// only when the value actually changed so tabbing through doesn't refetch.
+$("league").addEventListener("blur", () => {
+  const league = Number($("league").value);
+  if (league && league !== state.report?.league?.id) load(true);
+});
 
 $("sort").addEventListener("change", () => {
   state.sort = { key: $("sort").value, dir: defaultDir($("sort").value) };
@@ -717,6 +809,7 @@ for (const [id, view] of [["view-gw", "gw"], ["view-season", "season"], ["view-m
 
 (function init() {
   fillSortOptions();
+  if (isMobile()) setFiltersOpen(false);
   const params = new URLSearchParams(location.search);
   // Clear the key the old build wrote, so a browser carrying a stale league
   // heals itself on the next load rather than needing devtools.
