@@ -434,6 +434,36 @@ tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in ok
 .notes b { color: var(--n7); font-weight: 500; }
 .provisional { color: var(--n7); }
 
+/* ── Legend ────────────────────────────────────────────────────────────
+   Every mark here is the real thing, rendered from the same classes the
+   table uses rather than drawn as a facsimile - so it stays correct when
+   a colour or a glyph changes, and the eye can match it against a row
+   directly. The one-line label says what the mark is; the full sentence
+   lives in the tooltip, which keeps the grid scannable instead of turning
+   back into the wall of prose this replaced.                            */
+.legend {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.15rem 1.5rem; margin-top: 0.25rem;
+}
+.lg-item {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  font-size: 0.8125rem; color: var(--n6);
+  padding: 0.3rem 0; cursor: help; /* the affordance for "there is more on hover" */
+  border-bottom: 1px solid transparent;
+  transition: color 150ms var(--ease);
+}
+.lg-item:hover, .lg-item:focus-visible { color: var(--n8); }
+.lg-mark {
+  flex: none; min-width: 5rem; display: inline-flex;
+  align-items: center; gap: 0.3rem;
+}
+/* The leader's gilt edge is a row treatment, so it has no inline mark of
+   its own - this is the only swatch in the legend that is a stand-in. */
+.lg-edge {
+  display: inline-block; width: 3px; height: 0.95rem;
+  background: var(--gold); border-radius: 1px;
+}
+
 /* ── Motion ────────────────────────────────────────────────────────────
    One entrance, and what it staggers is a league table arriving row by
    row — the motion depicts its subject rather than decorating it.
@@ -894,7 +924,7 @@ function render(fresh) {
     <h2 class="eyebrow">${label}</h2>
     ${rep.provisional && !season ? '<p class="provisional">This gameweek is not finalised — bonus, gameweek ranks and bench points can still move.</p>' : ""}
     <div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody${fresh ? ' class="fresh"' : ""}>${body}</tbody></table></div>
-    ${notes(season)}`;
+    ${notes(state.view)}`;
   flipRows(before);
 
   $("panel").querySelectorAll("th.sortable").forEach((th) => {
@@ -974,7 +1004,7 @@ function renderMonthly(rep) {
     <div class="table-scroll"><table><thead><tr>
       <th scope="col">#</th><th scope="col">Team</th><th scope="col">Points</th>
     </tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="notes"><span>A month stays <b>provisional</b> until its last gameweek is finalised.</span></div>`;
+    ${notes("monthly")}`;
   updateScrollHint();
 }
 
@@ -1099,18 +1129,71 @@ function toPlayView(d) {
   `;
 }
 
-function notes(season) {
-  return `<div class="notes">
-    <span><b>GW</b> is net of the transfer hit — the API reports it gross. Hover a score for the breakdown.</span>
-    ${season
-      ? '<span><b>Benched</b> reads 0 for any Bench Boost week, which is what the API reports for them.</span>'
-      : '<span><b>*</b> marks a bench recomputed from picks and live points, because Bench Boost reports 0.</span>'}
-    <span><b>★ WIN</b> is the highest score that gameweek, net of hits; <b>▬ BENCH</b> is the most points left on the bench. Ties are shared.</span>
-    <span>A Bench Boost week cannot win the bench tally — the bench played, so nothing was left behind.</span>
-    <span>The <b>Monthly</b> tab shows FPL's own calendar-month phases, scored net of hits from the gameweeks already played.</span>
-    <span><b>To play</b> counts the starting XI only, or all 15 during a Bench Boost. Hover for the full breakdown.</span>
-    <span>Select a row for its transfers, team, captain and players left to play. Column headings sort.</span>
-  </div>`;
+// Marks shared by more than one view, written once so the legend and the
+// table can never drift apart on a colour or a glyph.
+const MARK = {
+  win: '<span class="badge win">★ WIN</span>',
+  benchwin: '<span class="badge benchwin">▬ BENCH</span>',
+  gwTally: '<span class="honour honour-gw">★<span class="s">3</span></span>',
+  benchTally: '<span class="honour honour-bench">▬<span class="s">2</span></span>',
+  leader: '<span class="lg-edge"></span><span class="rank" style="color:var(--gold)">1</span>',
+  move: '<span class="move up">↑3</span><span class="move down">↓2</span>',
+  gap: '<span class="gap">−12</span>',
+  chip: '<span class="chip">BB</span>',
+  derived: '<span class="num val">7</span><span class="derived">*</span>',
+  live: '<span class="fx-dot live"></span><span class="fx-dot upcoming"></span>',
+};
+
+// [mark, label, the sentence that only appears on hover]
+function legendItems(view) {
+  const leader = [MARK.leader, "League leader", "The gilt edge and the gold rank number mark whoever is top of the table."];
+  const gap = [MARK.gap, "Points behind", "How far this team is behind the leader on total points."];
+  const chip = [MARK.chip, "Chip played", "WC wildcard · FH free hit · BB bench boost · TC triple captain."];
+  const gwTally = [MARK.gwTally, "Gameweek wins", "How many gameweeks this team has won all season. Hover it in the table for the list of weeks."];
+  const benchTally = [MARK.benchTally, "Bench wins", "How many gameweeks this team left the most points on its bench. Hover it in the table for the list of weeks."];
+
+  if (view === "monthly") {
+    return [
+      [MARK.win, "Month winner", "Most points across the gameweeks in this calendar month, net of hits. Ties are shared."],
+      leader, gap,
+    ];
+  }
+  if (view === "season") {
+    return [
+      gwTally,
+      [`<span class="honour honour-gw">◆<span class="s">1</span></span>`, "Months won", "How many of FPL's calendar-month phases this team has topped."],
+      benchTally, leader, chip,
+    ];
+  }
+  return [
+    [MARK.win, "Gameweek winner", "Highest score this gameweek, net of any transfer hit. Ties are shared, so more than one team can carry it."],
+    [MARK.benchwin, "Most left behind", "Most points left on the bench this gameweek. A Bench Boost week can never win it — the bench played, so nothing was left behind."],
+    gwTally, benchTally, leader,
+    [MARK.move, "Rank movement", "Places gained or lost since the previous gameweek."],
+    gap, chip,
+    [MARK.derived, "Recomputed bench", "Bench Boost reports zero points on the bench, so this figure is rebuilt from the picks and the live scores."],
+    [MARK.live, "Playing / to play", "In an opened team, a pulsing dot is a player whose match is under way and a flat one is a match still to kick off."],
+  ];
+}
+
+function notes(view) {
+  const items = legendItems(view).map(([mark, label, title]) =>
+    `<div class="lg-item" title="${esc(title)}" tabindex="0"><span class="lg-mark">${mark}</span><span>${esc(label)}</span></div>`
+  ).join("");
+
+  // What's left in prose is the handful of things that aren't a mark: how a
+  // column is computed, and what the table itself does.
+  const prose = view === "monthly"
+    ? "<span>A month stays <b>provisional</b> until its last gameweek is finalised.</span>"
+    : `<span><b>GW</b> is net of the transfer hit — the API reports it gross. Hover a score for the breakdown.</span>
+       ${view === "season"
+         ? "<span><b>Benched</b> reads 0 for any Bench Boost week, which is what the API reports for them.</span>"
+         : "<span><b>To play</b> counts the starting XI, or all 15 during a Bench Boost. Hover it for the full breakdown.</span>"}
+       <span>Select a row for its transfers, team, captain and players left to play. Column headings sort.</span>`;
+
+  return `<h2 class="eyebrow">legend</h2>
+    <div class="legend">${items}</div>
+    <div class="notes">${prose}</div>`;
 }
 
 // ── data ──────────────────────────────────────────────────────────────
