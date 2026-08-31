@@ -10,7 +10,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzE2MTUxYyIvPgogIDxsaW5lIHgxPSI1IiB5MT0iMTYiIHgyPSIyNyIgeTI9IjE2IiBzdHJva2U9IiNjZGNlZDQiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2NkY2VkNCIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMiIgZmlsbD0iI2UyYTI0ZiIvPgo8L3N2Zz4K">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Martian+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@700&family=Martian+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ── Palette ───────────────────────────────────────────────────────────
    Neutrals carry a blue-violet cast (hue 285) at low chroma; accents sit
@@ -52,6 +52,17 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", "Arial Narrow", ui-sans-serif, sans-serif;
+
+  /* The mown band. A real pitch's stripes are obvious; these cannot be,
+     because a whole league table is read through them - at any step wide
+     enough to notice, a band reads as a highlighted column and starts
+     making claims about the data. 0.015 in lightness is under that and
+     over the step where the page reads as a flat sheet. */
+  --turf: color-mix(in oklch, var(--n1) 20%, transparent);
+  /* Pitch markings are chalk, so they take the furniture step rather than
+     an accent: they say where you are, never what anything is worth. */
+  --chalk: color-mix(in oklch, var(--n6) 22%, transparent);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -61,7 +72,11 @@ html {
 }
 body {
   margin: 0;
-  background: var(--n0);
+  /* Mown bands run goal to goal, so in this plan view they are vertical -
+     which is also the only direction that can be laid under a table safely,
+     since horizontal bands would fight the rows. */
+  background-color: var(--n0);
+  background-image: repeating-linear-gradient(90deg, var(--turf) 0 12.5vw, transparent 12.5vw 25vw);
   color: var(--n8);
   font-family: var(--sans);
   font-size: 0.9375rem;
@@ -79,25 +94,78 @@ body {
 
 .wrap { max-width: 78rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
 
-/* ── Status strip ──────────────────────────────────────────────────────
-   The portfolio's systemctl-style header: a dot, the subject, the state.
-   This is a machine reporting on itself, so it stays in the mono voice. */
-.strip {
-  display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
+/* ── Masthead ──────────────────────────────────────────────────────────
+   The league name used to be the `subject` field of a systemctl-style
+   status line - 12px of mono, the same size as the countdown beside it.
+   That had the hierarchy backwards. Twelve friends and a private joke of a
+   league name are what the page is about; the gameweek and the deadline
+   are what the machine has to say about it.
+
+   So the block keeps both registers and stops pretending they are one. The
+   name is the title, set in the family's condensed width. The machine's
+   report keeps the mono voice underneath it, unchanged.                  */
+.masthead {
+  position: relative; overflow: hidden;
   border: 1px solid var(--n5);
   border-radius: var(--radius);
-  padding: 0.625rem 0.875rem;
+  background: var(--n1);
+}
+.mh-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.5rem 1rem; flex-wrap: wrap;
+  padding: 0.85rem 0.9rem 0.7rem;
+}
+/* Condensed, and only here. A league name is the one string on the page
+   that is somebody's joke rather than a number, and it is also the one
+   that can run to forty characters - the width that suits both is the one
+   newspaper league tables have always been set in. */
+.league {
+  margin: 0;
+  font-family: var(--cond); font-weight: 700;
+  font-size: clamp(1.5rem, 4.6vw, 2.35rem);
+  line-height: 1.04; letter-spacing: -0.015em;
+  color: var(--n8); text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.season {
+  font-family: var(--mono); font-size: 0.6875rem; font-weight: 500;
+  letter-spacing: 0.1em; color: var(--n6); white-space: nowrap;
+}
+
+/* The portfolio's systemctl-style line: a dot, the state. This is the
+   machine reporting on itself, so it stays in the mono voice - it just no
+   longer has to carry the league's name at the machine's size. */
+.strip {
+  position: relative;
+  display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap;
+  padding: 0.55rem 0.9rem 0.6rem;
   font-family: var(--mono);
   font-size: 0.75rem;
-  background: var(--n1);
+  /* Doing two jobs honestly: the rule that separates the title from the
+     machine's report is also the halfway line the circle below is drawn
+     around. A divider that had to be here anyway is the only part of the
+     pitch that costs the layout nothing. */
+  border-top: 1px solid var(--n4);
 }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex: none; }
 .dot.stale { background: var(--n5); }
 .dot.err { background: var(--rose); }
-.strip .subject { color: var(--n8); font-weight: 500; }
-.strip .dash { color: var(--n4); }
 .strip .state { color: var(--n6); }
 .strip .right { margin-left: auto; color: var(--n6); }
+.strip > span { position: relative; }
+
+/* The centre circle, centred on the halfway line and cropped by the block -
+   the same three marks as the favicon, at the scale you would meet them at
+   standing on the spot. Chalk weight, so it sits under the type rather
+   than competing with it. */
+.mark {
+  position: absolute; left: 50%; top: 0;
+  transform: translate(-50%, -50%);
+  width: clamp(7rem, 22vw, 10.5rem); aspect-ratio: 1;
+  fill: none; stroke: var(--chalk); stroke-width: 1;
+  pointer-events: none;
+}
+.mark .spot { fill: var(--chalk); stroke: none; }
 
 /* ── Controls ──────────────────────────────────────────────────────────
    Inputs get the strong border step: an edge you are meant to click must
@@ -755,7 +823,8 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
      hiding data; tightening the cells buys a couple of columns per screen. */
   table { font-size: 0.8125rem; }
   tbody td, thead th { padding-left: 0.45rem; padding-right: 0.45rem; }
-  .strip { font-size: 0.6875rem; }
+  .mh-top { padding: 0.7rem 0.75rem 0.6rem; }
+  .strip { padding: 0.5rem 0.75rem 0.55rem; font-size: 0.6875rem; }
 
   /* Rank and manager pin to the left edge while the rest of the row scrolls
      underneath, so a name never disappears off-screen while you're reading
@@ -788,12 +857,20 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
 <a class="skip" href="#results">Skip to results</a>
 <div class="wrap">
 
-  <header class="strip" id="strip">
-    <span class="dot stale" id="dot" role="img" aria-label="status"></span>
-    <span class="subject" id="subject">fpl-league-rank</span>
-    <span class="dash">—</span>
-    <span class="state" id="state">idle</span>
-    <span class="right" id="count"></span>
+  <header class="masthead">
+    <div class="mh-top">
+      <h1 class="league" id="subject">FPL League Rank</h1>
+      <span class="season" id="season"></span>
+    </div>
+    <div class="strip">
+      <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" vector-effect="non-scaling-stroke"/>
+        <circle class="spot" cx="50" cy="50" r="1.6"/>
+      </svg>
+      <span class="dot stale" id="dot" role="img" aria-label="status"></span>
+      <span class="state" id="state">idle</span>
+      <span class="right" id="count"></span>
+    </div>
   </header>
 
   <button type="button" class="filters-toggle" id="filters-toggle" aria-expanded="true" aria-controls="controls">
@@ -1155,6 +1232,16 @@ function skeletonSquad() {
       Array.from({ length: [1, 4, 4, 2][g] }, (_, i) =>
         `<span class="sk tall" style="width:${7 * skJitter(g, i)}rem;--i:${g * 4 + i}"></span>`).join("")
     }</div></div>`).join("");
+}
+
+// A season is the year it kicked off in - FPL runs August to May, so a
+// deadline in January belongs to the season that started the summer before.
+function seasonLabel(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const y = d.getUTCFullYear();
+  const start = d.getUTCMonth() >= 6 ? y : y - 1;
+  return `${start}/${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
 // ── formatting ────────────────────────────────────────────────────────
@@ -1840,6 +1927,7 @@ async function load(push) {
     const countdown = deadlineCountdown(data.event.deadline_time);
     const stateText = (data.provisional ? `${data.event.name} · provisional` : data.event.name)
       + (countdown ? ` · ${countdown}` : "");
+    $("season").textContent = seasonLabel(data.event.deadline_time);
     setStatus("ok", data.league.name || `league ${league}`, stateText, `${data.gameweek.length} managers`);
     // Only a load replays the row entrance; a refresh of the same league and
     // gameweek is a reorder, so it gets the FLIP slide instead of a restage.
