@@ -107,7 +107,7 @@ body {
   margin: 1.5rem 0 2rem;
 }
 .field { display: flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
-.field label {
+.field label, .field .lbl {
   font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--n6);
 }
@@ -169,17 +169,19 @@ button:disabled { opacity: 0.5; cursor: default; }
    same neutral ramp - at n3 for both, a hovered tab was indistinguishable
    from the selected one. Selection is a lighter fill plus an accent rule
    along the bottom; hover stays a plain neutral lift. */
-.toggle { display: flex; border: 1px solid var(--n5); border-radius: var(--radius); overflow: hidden; }
+.toggle {
+  display: flex; position: relative;
+  border: 1px solid var(--n5); border-radius: var(--radius); overflow: hidden;
+}
 .toggle button {
   border: 0; border-radius: 0; background: transparent; color: var(--n6);
-  white-space: nowrap; box-shadow: inset 0 -2px 0 0 transparent;
-  transition: background 180ms var(--ease), color 180ms var(--ease), box-shadow 180ms var(--ease);
+  white-space: nowrap;
+  transition: background 180ms var(--ease), color 180ms var(--ease);
 }
 .toggle button + button { border-left: 1px solid var(--n5); }
-.toggle button[aria-pressed="true"],
-.toggle button[aria-pressed="true"]:hover {
+.toggle button[aria-selected="true"],
+.toggle button[aria-selected="true"]:hover {
   background: var(--n4); color: var(--n8);
-  box-shadow: inset 0 -2px 0 0 var(--blue);
 }
 
 .phase-status {
@@ -220,7 +222,6 @@ tbody td {
 tbody td:nth-child(-n+2) { text-align: left; }
 tbody tr { transition: background 150ms var(--ease); }
 tbody tr.row:hover { background: var(--n1); }
-tbody tr.row.open { background: var(--n1); }
 
 .rank { font-family: var(--mono); color: var(--n6); font-size: 0.8125rem; }
 .rankcell { display: flex; flex-direction: column; gap: 0.1rem; }
@@ -333,27 +334,19 @@ tbody tr.row.leader .rank { color: var(--gold); }
 .derived { color: var(--orange); font-size: 0.75rem; }
 
 /* ── Transfer detail ───────────────────────────────────────────────────*/
-tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in oklch, var(--n4) 45%, transparent); }
 .tf-list { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-family: var(--mono); font-size: 0.75rem; color: var(--n7); }
 .tf-list .out { color: var(--n6); }
 .tf-list .arrow { color: var(--n4); margin: 0 0.3rem; }
 .tf-none { font-size: 0.75rem; color: var(--n6); font-style: italic; }
 
-/* ── Manager menu ─────────────────────────────────────────────────────
-   A row opens onto four options rather than straight into content - a
-   name is pressed to ask "what about this manager", and the option is a
-   second, more specific question. Both steps, and everything inside the
-   content they reveal, arrive with the same staggered fade+blur entrance
-   the portfolio's team sheet uses for a squad appearing line by line. */
+/* ── Manager options ──────────────────────────────────────────────────
+   Inside the dialog a manager opens onto four questions, and the answer
+   to each arrives with the same staggered fade+blur entrance the
+   portfolio's team sheet uses for a squad appearing line by line.     */
 @keyframes cardin {
   from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
   to { opacity: 1; transform: none; filter: blur(0); }
 }
-/* Pinned to the scroll container's left edge and sized to it in JS
-   (fitDetailWraps), so content wraps to what's actually visible instead of
-   the full, much wider, ten-column table underneath it. */
-.opt-wrap { position: sticky; left: 0; box-sizing: border-box; }
-
 .opt-menu { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .opt-btn {
   font-family: var(--mono); font-size: 0.75rem; font-weight: 500;
@@ -369,11 +362,11 @@ tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in ok
    text instead - the one inversion on the page, and unmistakable.
 
    The :hover half is not redundant: the generic button:hover rule above is
-   (0,2,1) and would otherwise outrank a bare [aria-pressed] at (0,2,0),
+   (0,2,1) and would otherwise outrank a bare [aria-selected] at (0,2,0),
    repainting the selected pill as merely hovered - which is its state
    almost every time anyone looks at it, having just clicked it. */
-.opt-btn[aria-pressed="true"],
-.opt-btn[aria-pressed="true"]:hover {
+.opt-btn[aria-selected="true"],
+.opt-btn[aria-selected="true"]:hover {
   background: var(--blue); border-color: var(--blue); color: var(--n0); font-weight: 600;
 }
 
@@ -464,6 +457,201 @@ tr.detail td { padding: 0.75rem 0.6rem; border-bottom: 1px solid color-mix(in ok
   background: var(--gold); border-radius: 1px;
 }
 
+/* ── Tooltip ───────────────────────────────────────────────────────────
+   Replaces title= everywhere a mark needs a sentence. The native attribute
+   was doing the job badly: a delay you can't tune, no styling, no line
+   breaks, and nothing at all on a touch screen - which meant every legend
+   entry on a phone was a glyph with no explanation beside it.
+
+   One element for the whole page, moved and refilled, rather than one per
+   trigger. render() rewrites the table's innerHTML on every sort and every
+   open, so anything bound per-trigger would be destroyed a dozen times a
+   session; the listener sits on the document and reads data-tip off
+   whatever it lands on.                                                  */
+#tip {
+  position: fixed; inset: auto; top: 0; left: 0; margin: 0; z-index: 60;
+  width: max-content; max-width: 20rem; pointer-events: none;
+  background: var(--n2); color: var(--n8);
+  border: 1px solid var(--n5); border-radius: var(--radius);
+  padding: 0.4rem 0.55rem;
+  font-size: 0.75rem; line-height: 1.45;
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.7);
+  opacity: 0;
+  transition: opacity 120ms var(--ease), overlay 120ms allow-discrete, display 120ms allow-discrete;
+}
+#tip:popover-open, #tip.show { opacity: 1; }
+@starting-style { #tip:popover-open { opacity: 0; } }
+/* ── Toasts ────────────────────────────────────────────────────────────
+   For a failure that happens while the table is already on screen. The
+   in-page .msg block below is still the right answer when the panel is
+   empty - a dismissible corner card must never be the only record that
+   the page has nothing on it - so these two split the job by whether
+   there is anything left to read.                                       */
+#toaster {
+  position: fixed; z-index: 70; right: 1rem; bottom: 1rem;
+  width: min(23rem, calc(100vw - 2rem));
+  display: flex; flex-direction: column-reverse; gap: 0.5rem;
+  pointer-events: none;
+}
+@keyframes toastin { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+@keyframes toastout { to { opacity: 0; transform: translateY(6px) scale(0.98); } }
+.toast {
+  pointer-events: auto;
+  display: grid; grid-template-columns: 1fr auto; gap: 0 0.75rem;
+  background: var(--n1); border: 1px solid var(--n5); border-radius: var(--radius);
+  padding: 0.7rem 0.8rem;
+  box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.85);
+  animation: toastin 260ms var(--ease) both;
+}
+.toast.out { animation: toastout 170ms var(--ease) both; }
+.toast.err { border-color: color-mix(in oklch, var(--rose) 45%, transparent); }
+.t-head {
+  font-family: var(--mono); font-size: 0.6875rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--n6);
+}
+.toast.err .t-head { color: var(--rose); }
+.t-body { grid-column: 1; margin-top: 0.3rem; font-size: 0.8125rem; color: var(--n7); word-break: break-word; }
+.t-actions { grid-column: 1 / -1; display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+.t-actions button { font-size: 0.75rem; padding: 0.32rem 0.65rem; }
+.t-close {
+  grid-row: 1; grid-column: 2; align-self: start;
+  background: none; border: 0; padding: 0 0 0 0.25rem; line-height: 1;
+  color: var(--n5); font-size: 0.9rem; cursor: pointer;
+}
+/* :not(:disabled) is not decoration - the generic button:hover rule is
+   (0,2,1) and would otherwise repaint this flat button with a fill. */
+.t-close:hover:not(:disabled) { background: none; color: var(--n8); }
+
+/* ── Skeleton ──────────────────────────────────────────────────────────
+   A league report is dozens of upstream calls, so the wait is real and
+   the old blank panel gave no shape to it. These are the table that is
+   coming, at its real geometry, so nothing jumps when the rows land.
+
+   The pulse is staggered down the rows on the same 18ms step as the row
+   entrance, so the wait and the arrival read as one gesture rather than
+   two unrelated animations.                                             */
+@keyframes skpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.sk {
+  display: inline-block; height: 0.6875rem; border-radius: 3px;
+  background: var(--n2); vertical-align: middle;
+  animation: skpulse 1.6s var(--ease) infinite;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+.sk.tall { height: 1.9rem; border-radius: var(--radius); }
+tbody.skeleton td { border-bottom-color: color-mix(in oklch, var(--n4) 30%, transparent); }
+/* A refresh that has something to keep on screen keeps it, dimmed, rather
+   than replacing a full table with a full skeleton - the numbers on screen
+   are a minute old, not wrong. */
+.table-scroll.loading { opacity: 0.45; pointer-events: none; transition: opacity 200ms var(--ease); }
+
+/* ── Dialog / sheet ────────────────────────────────────────────────────
+   A manager used to open as a row inside the table, which meant fifteen
+   player cards were laid out against a ten-column table's width instead
+   of the screen's, held in place by a sticky wrapper measured in JS on
+   every render. Stepping out of the table gets the full width for free
+   and takes the measuring machinery with it.
+
+   It is the native element rather than a div: showModal() carries the
+   focus trap, Escape, the inert background and top-layer stacking, all of
+   which a hand-rolled overlay gets subtly and invisibly wrong.
+
+   Entry and exit are the discrete-transition idiom (@starting-style plus
+   allow-discrete) rather than a class flipped from JS. Where a browser
+   lacks it the dialog simply appears, which is the correct degradation:
+   the animation was never the thing carrying meaning.                   */
+dialog.dlg {
+  border: 0; padding: 0; background: transparent; color: inherit;
+  width: 100%; max-width: min(52rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 4rem);
+  overflow: visible;
+  opacity: 0; transform: translateY(10px) scale(0.985);
+  transition: opacity 220ms var(--ease), transform 220ms var(--ease),
+              overlay 220ms allow-discrete, display 220ms allow-discrete;
+}
+dialog.dlg[open] { opacity: 1; transform: none; }
+@starting-style { dialog.dlg[open] { opacity: 0; transform: translateY(10px) scale(0.985); } }
+
+dialog.dlg::backdrop {
+  background: color-mix(in oklch, var(--n0) 74%, transparent);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 220ms var(--ease), overlay 220ms allow-discrete, display 220ms allow-discrete;
+}
+dialog.dlg[open]::backdrop { opacity: 1; }
+@starting-style { dialog.dlg[open]::backdrop { opacity: 0; } }
+
+/* A sheet is the same element anchored to the bottom edge and entering
+   along it. On a phone the manager dialog becomes one too, so there is a
+   single "more, from down here" gesture on the page rather than two. */
+dialog.sheet {
+  margin: auto auto 0; max-width: 100%;
+  max-height: 88dvh;
+  transform: translateY(100%);
+}
+@starting-style { dialog.sheet[open] { transform: translateY(100%); } }
+
+html.locked { overflow: hidden; }
+
+.dlg-panel {
+  display: flex; flex-direction: column;
+  max-height: inherit; overflow: hidden;
+  background: var(--n1);
+  border: 1px solid var(--n5);
+  border-radius: calc(var(--radius) * 2);
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.8);
+}
+dialog.sheet .dlg-panel {
+  border-radius: calc(var(--radius) * 3) calc(var(--radius) * 3) 0 0;
+  border-bottom: 0;
+}
+/* The grab bar is the affordance, not a control: it says which edge this
+   came from. Dismissal is the backdrop, Escape and the close button. */
+.sheet-grip {
+  display: none;
+  width: 2.25rem; height: 3px; border-radius: 3px; background: var(--n4);
+  margin: 0.6rem auto 0; flex: none;
+}
+dialog.sheet .sheet-grip { display: block; }
+
+.dlg-head { padding: 1rem 1.1rem 0.9rem; border-bottom: 1px solid var(--n4); flex: none; }
+.dlg-id { display: flex; align-items: flex-start; gap: 0.85rem; }
+.dlg-rank {
+  font-family: var(--mono); font-size: 1.6rem; line-height: 1.1;
+  font-variant-numeric: tabular-nums; color: var(--n6); flex: none;
+}
+.dlg-rank.leader { color: var(--gold); }
+.dlg-titles { min-width: 0; }
+.dlg-entry { font-size: 1rem; font-weight: 500; color: var(--n8); line-height: 1.3; }
+.dlg-manager { font-size: 0.8125rem; color: var(--n6); }
+.dlg-close {
+  margin-left: auto; flex: none;
+  padding: 0.3rem 0.55rem; font-size: 0.9rem; line-height: 1;
+  background: transparent; border-color: var(--n4); color: var(--n6);
+}
+.dlg-close:hover:not(:disabled) { color: var(--n8); }
+/* The row's own numbers, carried into the dialog so the squad below is
+   read against the score it produced rather than in isolation. */
+.dlg-stats { display: flex; flex-wrap: wrap; gap: 0.9rem 1.5rem; margin-top: 0.95rem; }
+.dlg-stat .n { font-family: var(--mono); font-size: 1.05rem; color: var(--n8); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.dlg-stat .n.gwpts { color: var(--orange); }
+.dlg-stat .n.hit { color: var(--rose); }
+.dlg-stat .l { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--n6); }
+.dlg-body { padding: 1rem 1.1rem 1.25rem; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ── Tab indicator ─────────────────────────────────────────────────────
+   The selected rule used to be an inset shadow on each button, so moving
+   between views was a cut. One shared bar that travels instead makes the
+   switch depict the thing it does, and it is the only element on the page
+   whose position is animated rather than its opacity.                    */
+.tabind {
+  position: absolute; bottom: 0; left: 0; height: 2px; width: 0;
+  background: var(--blue); pointer-events: none;
+  transition: transform 260ms var(--ease), width 260ms var(--ease);
+}
+/* Before the first measurement there is nothing to slide from, so the bar
+   arrives in place rather than sweeping in from the left edge. */
+.tabind.init { transition: none; }
+
 /* ── Motion ────────────────────────────────────────────────────────────
    One entrance, and what it staggers is a league table arriving row by
    row — the motion depicts its subject rather than decorating it.
@@ -499,10 +687,14 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
 @media (max-width: 640px) {
   .wrap { padding: 1.25rem 0.875rem 3rem; }
 
-  /* Collapsed by default: the form used to occupy the entire first screen,
-     pushing the table below the fold on every load. Tucking it behind a
-     summary button means results are visible immediately, and the button
-     itself remains the way back in to change league/gameweek/sort. */
+  /* The form used to occupy the entire first screen, pushing the table
+     below the fold on every load. It moves into a bottom sheet instead
+     (see placeControls), so results are visible immediately and this
+     button is the way back in to change league/gameweek/sort.
+
+     A sheet rather than the in-place collapse it replaces: the form is
+     eight controls tall, so expanding it inline pushed the table off
+     screen again and left the page scrolled to nothing. */
   .filters-toggle {
     display: flex; align-items: center; justify-content: space-between;
     width: 100%; margin-top: 1.25rem;
@@ -519,10 +711,23 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem 0.625rem;
     align-items: end;
-    margin: 0.75rem 0 1.5rem;
+    margin: 0;
   }
-  .controls.collapsed { display: none; }
   .f-league, .f-sort, .f-month, .f-view, #go { grid-column: 1 / -1; }
+
+  /* The manager dialog becomes a sheet too, so both "more, from down here"
+     gestures on a phone are the same gesture. */
+  dialog.dlg { max-width: 100%; margin: auto auto 0; max-height: 88dvh; transform: translateY(100%); }
+  @starting-style { dialog.dlg[open] { transform: translateY(100%); } }
+  .dlg-panel { border-radius: calc(var(--radius) * 3) calc(var(--radius) * 3) 0 0; border-bottom: 0; }
+  .dlg-head, .dlg-body { padding-left: 0.875rem; padding-right: 0.875rem; }
+  .sheet-grip { display: block; }
+  .dlg-stats { gap: 0.75rem 1.1rem; }
+
+  /* Full-bleed and above the home indicator, and never wider than the
+     screen - the toaster's fixed right inset would otherwise put an
+     action button under a thumb reaching for the scroll edge. */
+  #toaster { right: 0.75rem; left: 0.75rem; bottom: 0.75rem; width: auto; }
   .toggle button { font-size: 0.8125rem; padding: 0.5rem 0.3rem; }
 
   input[type="number"], select, button {
@@ -532,7 +737,7 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
     width: 100%;
     padding: 0.5rem 0.7rem;
   }
-  .field label { font-size: 0.75rem; }
+  .field label, .field .lbl { font-size: 0.75rem; }
 
   .sortrow select { min-width: 0; flex: 1; }
   .sortrow button { width: 2.75rem; min-width: 2.75rem; flex: none; padding: 0; }
@@ -540,6 +745,8 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
   /* Otherwise inherits the generic mobile button rule's width:100%, which
      as a flex-basis forces every option onto its own full-width row. */
   .opt-btn { width: auto; min-height: 2.375rem; padding: 0.4rem 0.65rem; }
+  .dlg-close, .t-close, .t-actions button { width: auto; min-width: 0; }
+  .dlg-close { min-height: 2.25rem; }
 
   .toggle { width: 100%; }
   .toggle button { flex: 1; }
@@ -560,8 +767,7 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
   }
   thead th:nth-child(1), tbody td:nth-child(1) { left: 0; min-width: 3rem; }
   thead th:nth-child(2), tbody td:nth-child(2) { left: 3rem; box-shadow: 1px 0 0 var(--n4); }
-  tbody tr.row:hover td:nth-child(1), tbody tr.row:hover td:nth-child(2),
-  tbody tr.row.open td:nth-child(1), tbody tr.row.open td:nth-child(2) { background: var(--n1); }
+  tbody tr.row:hover td:nth-child(1), tbody tr.row:hover td:nth-child(2) { background: var(--n1); }
 
   /* A right-edge shadow signals there is more to scroll to; a gradient into
      the matching background colour would be invisible here, so this darkens
@@ -594,6 +800,7 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
     <span>Filters</span><span class="ft-caret" aria-hidden="true">▾</span>
   </button>
 
+  <div id="controls-slot">
   <form class="controls" id="controls">
     <div class="field f-league">
       <label for="league">League ID</label>
@@ -619,24 +826,51 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
       <label for="sort">Sort by</label>
       <div class="sortrow">
         <select id="sort"></select>
-        <button type="button" id="sortdir" title="Reverse the sort">↓</button>
+        <button type="button" id="sortdir" data-tip="Reverse the sort">↓</button>
       </div>
     </div>
     <div class="field f-view">
-      <label for="view-gw">View</label>
-      <div class="toggle" role="group" aria-label="View">
-        <button type="button" id="view-gw" aria-pressed="true">Gameweek</button>
-        <button type="button" id="view-season" aria-pressed="false">Season</button>
-        <button type="button" id="view-monthly" aria-pressed="false">Monthly</button>
+      <span class="lbl" id="view-label">View</span>
+      <div class="toggle" role="tablist" id="view-tabs" aria-labelledby="view-label">
+        <button type="button" role="tab" id="view-gw" aria-selected="true" aria-controls="panel">Gameweek</button>
+        <button type="button" role="tab" id="view-season" aria-selected="false" aria-controls="panel" tabindex="-1">Season</button>
+        <button type="button" role="tab" id="view-monthly" aria-selected="false" aria-controls="panel" tabindex="-1">Monthly</button>
+        <span class="tabind init" id="view-ind" aria-hidden="true"></span>
       </div>
     </div>
-    <button type="submit" id="go" title="Fetch the latest scores">Refresh</button>
+    <button type="submit" id="go" data-tip="Fetch the latest scores from the FPL API">Refresh</button>
   </form>
+  </div>
 
   <main id="results">
-    <div id="panel"></div>
+    <div id="panel" role="tabpanel" aria-labelledby="view-gw" tabindex="0"></div>
   </main>
 </div>
+
+<!-- On a phone the form lives in here instead; placeControls() moves the one
+     element between the two homes rather than keeping two copies in sync. -->
+<dialog class="dlg sheet" id="filters-sheet" aria-labelledby="filters-title">
+  <div class="dlg-panel">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="dlg-head">
+      <div class="dlg-id">
+        <div class="dlg-titles">
+          <div class="dlg-entry" id="filters-title">Filters</div>
+          <div class="dlg-manager">League, gameweek, sort and view</div>
+        </div>
+        <button type="button" class="dlg-close" data-close aria-label="Close filters">✕</button>
+      </div>
+    </div>
+    <div class="dlg-body" id="sheet-body"></div>
+  </div>
+</dialog>
+
+<dialog class="dlg" id="manager-dialog" aria-labelledby="mgr-entry">
+  <div class="dlg-panel" id="mgr-panel"></div>
+</dialog>
+
+<div id="toaster" role="region" aria-live="polite" aria-label="Notifications"></div>
+<div id="tip" popover="manual" role="tooltip"></div>
 
 <script>
 "use strict";
@@ -650,10 +884,14 @@ const $ = (id) => document.getElementById(id);
 const DEFAULT_LEAGUE = 580906;
 
 const state = {
-  view: "gw", sort: { key: "leagueRank", dir: 1 }, report: null, open: new Set(),
-  // Which option (transfers/team/captain/toplay) is showing under each open
-  // row, and the /api/team responses backing team/captain/toplay, cached by
-  // "entryId:gw" so switching tabs back and forth doesn't refetch.
+  view: "gw", sort: { key: "leagueRank", dir: 1 }, report: null,
+  // The manager whose dialog is open, or null. One at a time: the dialog is
+  // modal, which is the whole reason the squad gets the width it needs.
+  dialog: null,
+  // Which option (transfers/team/captain/toplay) that manager last had
+  // showing - remembered per manager, so reopening a row lands where you
+  // left it - and the /api/team responses backing team/captain/toplay,
+  // cached by "entryId:gw" so switching tabs back and forth doesn't refetch.
   tab: new Map(), teamCache: new Map(),
   // entryIds whose GW score changed since the last load - set just before
   // the one render() that should flash them, then cleared, so re-sorting or
@@ -681,6 +919,242 @@ function deadlineCountdown(iso) {
   if (days > 0) return `${days}d ${hours}h to deadline`;
   if (hours > 0) return `${hours}h ${mins}m to deadline`;
   return `${mins}m to deadline`;
+}
+
+// ── tooltip ───────────────────────────────────────────────────────────
+// One element for the page. Everything with data-tip is a trigger, found
+// by delegation rather than by binding, because render() destroys and
+// rebuilds every trigger inside the table on each sort and each open.
+const TIP_DELAY = 160;
+let tipTimer = 0, tipFor = null;
+
+function tipPlace(target) {
+  const el = $("tip");
+  const r = target.getBoundingClientRect();
+  const t = el.getBoundingClientRect();
+  const M = 8;
+  // Above by preference: the trigger is usually a table cell with the row's
+  // other numbers to its right, and a tip below would cover the next row.
+  let top = r.top - t.height - 6;
+  if (top < M) top = r.bottom + 6;
+  let left = r.left + r.width / 2 - t.width / 2;
+  left = Math.max(M, Math.min(left, innerWidth - t.width - M));
+  el.style.left = Math.round(left) + "px";
+  el.style.top = Math.round(top) + "px";
+}
+
+// popover() where it exists, a class where it doesn't - the class path
+// stacks below a dialog, which is the correct amount of wrong for a browser
+// that is already several years behind.
+function tipToggle(el, show) {
+  if (!el.showPopover) return el.classList.toggle("show", show);
+  try { show ? el.showPopover() : el.hidePopover(); } catch {}
+}
+
+function tipShow(target) {
+  const text = target.getAttribute("data-tip");
+  if (!text) return;
+  const el = $("tip");
+  tipFor = target;
+  el.textContent = text;
+  tipToggle(el, true);
+  target.setAttribute("aria-describedby", "tip");
+  // Measured after the text is in, so the box is its final size before it
+  // is positioned - otherwise the first show lands half a line off.
+  tipPlace(target);
+}
+
+function tipHide() {
+  clearTimeout(tipTimer);
+  if (tipFor) { tipFor.removeAttribute("aria-describedby"); tipFor = null; }
+  tipToggle($("tip"), false);
+}
+
+function tipEnter(e) {
+  const t = e.target.closest && e.target.closest("[data-tip]");
+  if (!t || t === tipFor) return;
+  tipHide();
+  // Keyboard focus is deliberate, so it gets no delay; a pointer sweeping
+  // across a table of ten tooltipped cells needs one.
+  if (e.type === "focusin") return tipShow(t);
+  tipTimer = setTimeout(() => tipShow(t), TIP_DELAY);
+}
+
+document.addEventListener("pointerover", tipEnter);
+document.addEventListener("focusin", tipEnter);
+document.addEventListener("pointerout", (e) => {
+  if (tipFor && !(e.relatedTarget && tipFor.contains(e.relatedTarget))) tipHide();
+});
+document.addEventListener("focusout", tipHide);
+document.addEventListener("pointerdown", tipHide);
+// Fixed positioning is measured against the viewport, so any scroll leaves
+// the tip behind its trigger. Cheaper to drop it than to track it.
+addEventListener("scroll", tipHide, true);
+addEventListener("resize", tipHide);
+addEventListener("keydown", (e) => { if (e.key === "Escape") tipHide(); });
+
+// ── toasts ────────────────────────────────────────────────────────────
+// For a failure that arrives while there is still a table to read. When the
+// panel is empty the in-page message is used instead: a card you can dismiss
+// must never be the only thing saying the page has nothing on it.
+const MAX_TOASTS = 3;
+const liveToasts = new Map(); // key -> element, so a repeat replaces rather than stacks
+
+function dismissToast(el) {
+  if (!el.isConnected || el.classList.contains("out")) return;
+  for (const [k, v] of liveToasts) if (v === el) liveToasts.delete(k);
+  el.classList.add("out");
+  el.addEventListener("animationend", () => el.remove(), { once: true });
+  setTimeout(() => el.remove(), 400); // reduced motion kills the animation
+}
+
+function toast({ title, body, kind, actions, duration, key }) {
+  const host = $("toaster");
+  if (key && liveToasts.has(key)) dismissToast(liveToasts.get(key));
+
+  const el = document.createElement("div");
+  el.className = "toast" + (kind === "err" ? " err" : "");
+  el.setAttribute("role", kind === "err" ? "alert" : "status");
+
+  const head = document.createElement("div");
+  head.className = "t-head";
+  head.textContent = title;
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "t-close";
+  close.setAttribute("aria-label", "Dismiss");
+  close.textContent = "✕";
+  close.addEventListener("click", () => dismissToast(el));
+
+  el.append(head, close);
+  if (body) {
+    const b = document.createElement("div");
+    b.className = "t-body";
+    b.textContent = body;
+    el.append(b);
+  }
+  if (actions && actions.length) {
+    const bar = document.createElement("div");
+    bar.className = "t-actions";
+    for (const a of actions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = a.label;
+      btn.addEventListener("click", () => { dismissToast(el); a.run(); });
+      bar.append(btn);
+    }
+    el.append(bar);
+  }
+
+  host.append(el);
+  if (key) liveToasts.set(key, el);
+  while (host.children.length > MAX_TOASTS) dismissToast(host.firstElementChild);
+  // An error has no timer: it stays until it is read and dismissed.
+  if (duration) setTimeout(() => dismissToast(el), duration);
+  return el;
+}
+
+// ── dialogs ───────────────────────────────────────────────────────────
+// Native <dialog>, so the focus trap, Escape, the inert background and the
+// top layer come from the platform rather than from code here that would
+// get one of them subtly wrong.
+function openDialog(dlg) {
+  if (dlg.open) return;
+  tipHide();
+  dlg.showModal();
+  document.documentElement.classList.add("locked");
+}
+
+function closeDialog(dlg) {
+  if (dlg.open) dlg.close();
+}
+
+for (const dlg of document.querySelectorAll("dialog.dlg")) {
+  // A click that lands on the dialog element itself landed on the backdrop:
+  // the panel inside covers every pixel of the box.
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) closeDialog(dlg); });
+  dlg.addEventListener("close", () => {
+    if (!document.querySelector("dialog.dlg[open]")) {
+      document.documentElement.classList.remove("locked");
+    }
+  });
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("[data-close]");
+  if (btn) closeDialog(btn.closest("dialog"));
+});
+
+// ── tabs ──────────────────────────────────────────────────────────────
+// Roving tabindex: one stop for the whole set, arrows to move within it.
+// Activation follows focus, which is what a tab set that only re-renders
+// what is already loaded should do.
+function wireTabs(list, onSelect) {
+  const tabs = [...list.querySelectorAll('[role="tab"]')];
+  const pick = (tab) => {
+    if (tab.getAttribute("aria-selected") === "true") return;
+    onSelect(tab);
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => pick(tab));
+    tab.addEventListener("keydown", (e) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1, Home: -Infinity, End: Infinity }[e.key];
+      if (step === undefined) return;
+      e.preventDefault();
+      const next = tabs[step === -Infinity ? 0 : step === Infinity ? tabs.length - 1
+        : (i + step + tabs.length) % tabs.length];
+      next.focus();
+      pick(next);
+    });
+  });
+}
+
+// The travelling bar under the view tabs. Measured rather than declared,
+// because the three labels are different widths and the set reflows into a
+// full-width row on a phone.
+function moveIndicator(list, instant) {
+  const ind = list.querySelector(".tabind");
+  const sel = list.querySelector('[role="tab"][aria-selected="true"]');
+  if (!ind || !sel || !sel.offsetWidth) return;
+  if (instant) ind.classList.add("init");
+  ind.style.width = sel.offsetWidth + "px";
+  ind.style.transform = `translateX(${sel.offsetLeft}px)`;
+  if (instant) requestAnimationFrame(() => ind.classList.remove("init"));
+}
+
+// ── skeleton ──────────────────────────────────────────────────────────
+// The shape of the table that is coming, at its real geometry, so nothing
+// jumps when the rows land. Widths vary per cell on a fixed rule rather
+// than at random: a fresh set of widths on every re-render would read as
+// content changing rather than as content still loading.
+const SK_ROWS = 12;
+const skJitter = (i, j) => 0.75 + ((i * 7 + j * 13) % 5) * 0.1;
+
+function skBar(w, i) { return `<span class="sk" style="width:${w}rem;--i:${i}"></span>`; }
+
+function skeletonTable(view) {
+  const heads = view === "monthly"
+    ? [{ label: "#" }, { label: "Team" }, { label: "Points" }]
+    : columnsFor(view);
+  const head = heads.map((c) => `<th scope="col">${esc(c.label)}</th>`).join("");
+  const body = Array.from({ length: SK_ROWS }, (_, i) =>
+    `<tr>${heads.map((c, j) => {
+      if (j === 0) return `<td>${skBar(1.1, i)}</td>`;
+      if (j === 1) return `<td><span class="who">${skBar(7 * skJitter(i, j), i)}${skBar(4.5 * skJitter(i, j + 1), i)}</span></td>`;
+      return `<td>${skBar(2 * skJitter(i, j), i)}</td>`;
+    }).join("")}</tr>`).join("");
+  return `<div class="table-scroll"><table><thead><tr>${head}</tr></thead>
+    <tbody class="skeleton">${body}</tbody></table></div>`;
+}
+
+// The squad behind an option tab is one request, so its wait gets the same
+// treatment at the shape of the thing being fetched.
+function skeletonSquad() {
+  return ["GKP", "DEF", "MID", "FWD"].map((pos, g) => `
+    <div class="squad-group"><div class="squad-label">${pos}</div><div class="squad-row">${
+      Array.from({ length: [1, 4, 4, 2][g] }, (_, i) =>
+        `<span class="sk tall" style="width:${7 * skJitter(g, i)}rem;--i:${g * 4 + i}"></span>`).join("")
+    }</div></div>`).join("");
 }
 
 // ── formatting ────────────────────────────────────────────────────────
@@ -721,7 +1195,7 @@ const gwCols = [
     title: (r) => r.played ? `${r.grossPoints} scored${r.hit ? ` − ${r.hit} hit` : ""} = ${r.netPoints}` : "not in this gameweek" },
   { key: "hit", label: "Hit", num: true, cell: (r) => r.hit ? `<span class="num hit">−${r.hit}</span>` : '<span class="faint">·</span>' },
   { key: "bench", label: "Bench", num: true, cell: (r) => r.played
-      ? `<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" title="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}`
+      ? `<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" data-tip="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}`
       : '<span class="faint">—</span>' },
   { key: "chip", label: "Chip", cell: (r) => r.chip ? `<span class="chip">${esc(r.chip)}</span>` : '<span class="faint">·</span>' },
   { key: "transfers", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
@@ -786,8 +1260,8 @@ function fillSortOptions() {
 // Ties are shared, so both badges can appear on more than one row in a week.
 function weekBadges(r) {
   const b = [];
-  if (r.wonGw) b.push('<span class="badge win" title="Highest score in this gameweek">★ WIN</span>');
-  if (r.wonBench) b.push('<span class="badge benchwin" title="Most points left on the bench this gameweek">▬ BENCH</span>');
+  if (r.wonGw) b.push('<span class="badge win" data-tip="Highest score in this gameweek">★ WIN</span>');
+  if (r.wonBench) b.push('<span class="badge benchwin" data-tip="Most points left on the bench this gameweek">▬ BENCH</span>');
   return (b.length ? `<span class="badges">${b.join("")}</span>` : "") + honours(r);
 }
 
@@ -804,13 +1278,13 @@ function tally(kind, glyph, n, weeks, noun) {
   if (!n) return "";
   const list = (weeks || []).map((w) => "GW" + w).join(", ");
   const label = `${n} ${noun}${n === 1 ? "" : "s"} this season${list ? ` — ${list}` : ""}`;
-  return `<span class="honour honour-${kind}" title="${esc(label)}">${glyph}<span class="s">${n}</span></span>`;
+  return `<span class="honour honour-${kind}" data-tip="${esc(label)}">${glyph}<span class="s">${n}</span></span>`;
 }
 
 function seasonTally(n, cls, glyph, labels, verb) {
   if (!n) return '<span class="tally"><span class="n zero">·</span></span>';
   const t = `${verb} ${(labels || []).join(", ")}`;
-  return `<span class="tally" title="${esc(t)}"><span class="badge ${cls}">${glyph}</span><span class="n">${n}</span></span>`;
+  return `<span class="tally" data-tip="${esc(t)}"><span class="badge ${cls}">${glyph}</span><span class="n">${n}</span></span>`;
 }
 
 function chipLabel(n) {
@@ -868,6 +1342,9 @@ function prefersReducedMotion() {
 function render(fresh) {
   const rep = state.report;
   if (!rep) return;
+  // The tip's trigger is about to be replaced by innerHTML below, and a tip
+  // left pointing at a detached node never hides.
+  tipHide();
 
   const showSortRow = state.view !== "monthly";
   $("sort-field").style.display = showSortRow ? "" : "none";
@@ -902,15 +1379,11 @@ function render(fresh) {
 
   const body = rows.map((r, i) => {
     const cells = cols.map((c) => {
-      const t = c.title ? ` title="${esc(c.title(r))}"` : "";
+      const t = c.title ? ` data-tip="${esc(c.title(r))}"` : "";
       return `<td${t}>${c.cell(r, ctx)}</td>`;
     }).join("");
-    const isOpen = state.open.has(r.entryId);
-    const isLeader = r.leagueRank === 1;
-    const rowClass = `row${isOpen ? " open" : ""}${isLeader ? " leader" : ""}`;
-    let html = `<tr class="${rowClass}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-expanded="${isOpen}">${cells}</tr>`;
-    if (isOpen) html += menuRow(r, cols.length, rep, season);
-    return html;
+    const rowClass = `row${r.leagueRank === 1 ? " leader" : ""}`;
+    return `<tr class="${rowClass}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-haspopup="dialog">${cells}</tr>`;
   }).join("");
 
   $("sort").value = key;
@@ -933,42 +1406,18 @@ function render(fresh) {
     th.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
   });
 
-  $("panel").querySelectorAll("tr.row").forEach((tr) => {
-    const act = () => {
-      const id = Number(tr.dataset.entry);
-      state.open.has(id) ? state.open.delete(id) : state.open.add(id);
-      render();
-    };
-    tr.addEventListener("click", act);
-    tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
-  });
-
-  $("panel").querySelectorAll(".opt-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const entryId = Number(btn.dataset.entry);
-      const tab = btn.dataset.tab;
-      state.tab.set(entryId, state.tab.get(entryId) === tab ? null : tab);
-      render();
-    });
-  });
-
+  wireRows();
   updateScrollHint();
-  fitDetailWraps();
 }
 
-// The table can be far wider than the viewport once it's scrolling
-// sideways, and a colspan cell's content is laid out against that full
-// width, not what's actually visible. Sizing each wrap explicitly to the
-// scroll container's own clientWidth is what makes squad cards and option
-// buttons wrap at the screen edge instead of running off it.
-function fitDetailWraps() {
-  const scroller = $("panel").querySelector(".table-scroll");
-  if (!scroller) return;
-  $("panel").querySelectorAll(".opt-wrap").forEach((el) => {
-    const pad = el.parentElement; // the td, whose own horizontal padding must come off
-    const px = parseFloat(getComputedStyle(pad).paddingLeft) + parseFloat(getComputedStyle(pad).paddingRight);
-    el.style.width = Math.max(0, scroller.clientWidth - px) + "px";
+// Every row in every view is the same thing: the way into one manager.
+function wireRows() {
+  $("panel").querySelectorAll("tr.row[data-entry]").forEach((tr) => {
+    const act = () => openManager(Number(tr.dataset.entry));
+    tr.addEventListener("click", act);
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); }
+    });
   });
 }
 
@@ -989,13 +1438,14 @@ function renderMonthly(rep) {
     $("panel").innerHTML = `<h2 class="eyebrow">monthly standings</h2><p class="tf-none">No month has started yet.</p>`;
     return;
   }
-  const ph = phases.find((p) => p.name === state.month) || phases[phases.length - 1];
+  const ph = currentPhase();
 
   const leaderPoints = ph.standings.length ? ph.standings[0].points : 0;
   const rows = ph.standings.map((r, i) => `
-    <tr class="row${i === 0 ? " leader" : ""}" style="--i:${Math.min(i, 30)}">
+    <tr class="row${i === 0 ? " leader" : ""}" style="--i:${Math.min(i, 30)}"
+        data-entry="${r.entryId}" tabindex="0" role="button" aria-haspopup="dialog">
       <td><span class="rankcell"><span class="rankline"><span class="rank">${i + 1}</span></span>${i === 0 ? "" : `<span class="gap">−${leaderPoints - r.points}</span>`}</span></td>
-      <td><span class="who"><span class="name">${esc(r.entry)}${r.won ? '<span class="badges"><span class="badge win" title="Won this month">★ WIN</span></span>' : ""}</span><span class="team">${esc(r.manager)}</span></span></td>
+      <td><span class="who"><span class="name">${esc(r.entry)}${r.won ? '<span class="badges"><span class="badge win" data-tip="Won this month">★ WIN</span></span>' : ""}</span><span class="team">${esc(r.manager)}</span></span></td>
       <td><span class="num gwpts">${r.points}</span></td>
     </tr>`).join("");
 
@@ -1005,15 +1455,17 @@ function renderMonthly(rep) {
       <th scope="col">#</th><th scope="col">Team</th><th scope="col">Points</th>
     </tr></thead><tbody>${rows}</tbody></table></div>
     ${notes("monthly")}`;
+  wireRows();
   updateScrollHint();
 }
 
-// A row opens onto four options rather than straight into content. Team,
-// Captain and To play all read the same /api/team payload for this report's
-// gameweek - one lazy fetch per manager, cached so switching between them
-// doesn't refetch. Transfers needs no fetch (it's already on the row), so
-// it's the only option season/monthly views don't offer - there's no single
-// gameweek's transfers to show once rows span the whole season.
+// ── manager dialog ────────────────────────────────────────────────────
+// A manager opens onto four questions. Team, Captain and To play all read
+// the same /api/team payload for this report's gameweek - one lazy fetch
+// per manager, cached so switching between them doesn't refetch. Transfers
+// needs no fetch (it's already on the row), so it's the only option the
+// season and monthly views don't offer: there is no single gameweek's
+// transfers to show once a row spans the whole season.
 const OPTIONS = [
   { key: "transfers", label: "Transfers", gwOnly: true },
   { key: "team", label: "Team" },
@@ -1021,19 +1473,155 @@ const OPTIONS = [
   { key: "toplay", label: "To play" },
 ];
 
-function menuRow(r, span, rep, season) {
-  const opts = OPTIONS.filter((o) => !season || !o.gwOnly);
-  const active = state.tab.get(r.entryId);
+const findEntry = (list, id) => (list || []).find((r) => r.entryId === id) || null;
 
-  const menu = `<div class="opt-menu">${opts.map((o, i) => `
-    <button type="button" class="opt-btn" style="--i:${i}" data-entry="${r.entryId}" data-tab="${o.key}" aria-pressed="${active === o.key}">${esc(o.label)}</button>
-  `).join("")}</div>`;
+// The gameweek rows carry the identity and the season honours for every
+// view; only the season view has its own richer row to prefer.
+function managerRow(id) {
+  const rep = state.report;
+  if (!rep) return null;
+  return state.view === "season" ? findEntry(rep.season, id) : findEntry(rep.gameweek, id);
+}
 
-  let content = "";
-  if (active === "transfers") content = transfersContent(r, rep);
-  else if (active === "team" || active === "captain" || active === "toplay") content = teamContent(r, rep, active);
+function currentPhase() {
+  const phases = (state.report && state.report.monthly) || [];
+  return phases.find((p) => p.name === state.month) || phases[phases.length - 1] || null;
+}
 
-  return `<tr class="detail"><td colspan="${span}"><div class="opt-wrap">${menu}${content ? `<div class="opt-content">${content}</div>` : ""}</div></td></tr>`;
+function tabsFor() {
+  return OPTIONS.filter((o) => !o.gwOnly || state.view === "gw");
+}
+
+// A remembered tab can be one this view doesn't offer - open a manager in
+// the gameweek view on Transfers, switch to Season, open them again.
+function activeTab(id) {
+  const opts = tabsFor();
+  const want = state.tab.get(id);
+  return opts.some((o) => o.key === want) ? want : "team";
+}
+
+// The row's own numbers, carried into the dialog so the squad below is read
+// against the score it produced. Five at most: this is the headline, and a
+// tenth of a table repeated here would just be the table again.
+function dialogStats(r) {
+  const stat = (v, l, cls) => ({ v, l, cls });
+  if (state.view === "season") {
+    return [
+      stat(r.total, "Total", "gwpts"),
+      stat(r.bestGw ? `${r.bestGwPoints}` : "—", r.bestGw ? `Best · GW${r.bestGw}` : "Best GW"),
+      stat(r.gwWins || "·", "GW wins"),
+      stat(r.benchTotal, "Benched"),
+      stat(r.hitsTotal ? `−${r.hitsTotal}` : "·", "Hits", r.hitsTotal ? "hit" : ""),
+    ];
+  }
+  if (state.view === "monthly") {
+    const ph = currentPhase();
+    const st = ph && findEntry(ph.standings, r.entryId);
+    return [
+      stat(st ? st.points : "—", ph ? ph.name : "Month", "gwpts"),
+      stat(r.total, "Season total"),
+      stat(r.gwWins || "·", "GW wins"),
+      stat(r.benchWins || "·", "Bench wins"),
+    ];
+  }
+  return [
+    stat(r.played ? r.netPoints : "—", "GW points", "gwpts"),
+    stat(r.total, "Total"),
+    stat(r.played ? r.bench : "—", "Bench"),
+    stat(r.hit ? `−${r.hit}` : "·", "Hit", r.hit ? "hit" : ""),
+    stat(r.transfers || "·", "Transfers"),
+  ];
+}
+
+// Rank means the league position in two views and the month's position in
+// the third, so it is read from wherever the table the row came from got it.
+function dialogRank(r) {
+  if (state.view !== "monthly") return r.leagueRank;
+  const ph = currentPhase();
+  const i = ph ? ph.standings.findIndex((x) => x.entryId === r.entryId) : -1;
+  return i >= 0 ? i + 1 : "—";
+}
+
+function openManager(entryId) {
+  if (!state.report || !managerRow(entryId)) return;
+  state.dialog = entryId;
+  renderDialog();
+  openDialog($("manager-dialog"));
+}
+
+function closeManager() {
+  state.dialog = null;
+  closeDialog($("manager-dialog"));
+}
+
+$("manager-dialog").addEventListener("close", () => { state.dialog = null; });
+
+function renderDialog() {
+  const rep = state.report, id = state.dialog;
+  if (!rep || id == null) return;
+  const row = managerRow(id);
+  if (!row) return closeManager();
+
+  const rank = dialogRank(row);
+  const marks = state.view === "gw" ? weekBadges(row) : honours(row);
+  const chip = state.view === "gw" && row.chip ? ` <span class="chip">${esc(row.chip)}</span>` : "";
+  const active = activeTab(id);
+
+  const stats = dialogStats(row).map((st) =>
+    `<div class="dlg-stat"><div class="n ${esc(st.cls || "")}">${esc(String(st.v))}</div><div class="l">${esc(st.l)}</div></div>`
+  ).join("");
+
+  const tabs = tabsFor().map((o, i) =>
+    `<button type="button" role="tab" class="opt-btn" style="--i:${i}" id="mgr-tab-${o.key}"
+       data-tab="${o.key}" aria-controls="mgr-tabpanel"
+       aria-selected="${active === o.key}" tabindex="${active === o.key ? 0 : -1}">${esc(o.label)}</button>`
+  ).join("");
+
+  $("mgr-panel").innerHTML = `
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="dlg-head">
+      <div class="dlg-id">
+        <div class="dlg-rank${rank === 1 ? " leader" : ""}">${esc(String(rank))}</div>
+        <div class="dlg-titles">
+          <div class="dlg-entry" id="mgr-entry">${esc(row.entry)}${marks}${chip}</div>
+          <div class="dlg-manager">${esc(row.manager)}</div>
+        </div>
+        <button type="button" class="dlg-close" data-close aria-label="Close">✕</button>
+      </div>
+      <div class="dlg-stats">${stats}</div>
+    </div>
+    <div class="dlg-body">
+      <div class="opt-menu" role="tablist" aria-label="Manager detail">${tabs}</div>
+      <div class="opt-content" id="mgr-tabpanel" role="tabpanel" aria-labelledby="mgr-tab-${active}" tabindex="0"></div>
+    </div>`;
+
+  wireTabs($("mgr-panel").querySelector('[role="tablist"]'), (tab) => selectManagerTab(tab.dataset.tab));
+  renderDialogPanel();
+}
+
+// Only the panel is rewritten when the tab changes or the squad lands, so
+// nothing that has focus - the tab you just arrowed onto - is destroyed
+// underneath you.
+function selectManagerTab(key) {
+  state.tab.set(state.dialog, key);
+  $("mgr-panel").querySelectorAll('[role="tab"]').forEach((b) => {
+    const on = b.dataset.tab === key;
+    b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  $("mgr-tabpanel").setAttribute("aria-labelledby", "mgr-tab-" + key);
+  renderDialogPanel();
+}
+
+function renderDialogPanel() {
+  const el = $("mgr-tabpanel");
+  if (!el || state.dialog == null) return;
+  const row = managerRow(state.dialog);
+  if (!row) return;
+  const key = activeTab(state.dialog);
+  el.innerHTML = key === "transfers"
+    ? transfersContent(row, state.report)
+    : teamContent(row, state.report, key);
 }
 
 function transfersContent(r, rep) {
@@ -1046,8 +1634,9 @@ function transfersContent(r, rep) {
 }
 
 // Fetches (once) and caches the squad behind Team/Captain/To play. Firing a
-// render() from inside the .then() is what turns a bare loading line into
-// the populated, animated content once the response lands.
+// repaint from inside the .then() is what turns the skeleton into the
+// populated, animated squad once the response lands. Only the tab panel is
+// repainted, so the tab that has focus survives its own content arriving.
 function teamKey(entryId, rep) { return `${entryId}:${rep.event.id}`; }
 
 function ensureTeamData(entryId, rep) {
@@ -1062,13 +1651,13 @@ function ensureTeamData(entryId, rep) {
       state.teamCache.set(key, { status: "ready", data });
     })
     .catch((err) => state.teamCache.set(key, { status: "error", message: err.message }))
-    .finally(() => { if (state.report) render(); });
+    .finally(() => renderDialogPanel());
   return slot;
 }
 
 function teamContent(r, rep, tab) {
   const slot = ensureTeamData(r.entryId, rep);
-  if (slot.status === "loading") return `<p class="opt-loading">loading squad…</p>`;
+  if (slot.status === "loading") return skeletonSquad();
   if (slot.status === "error") return `<p class="opt-error">${esc(slot.message)}</p>`;
   if (tab === "team") return squadView(slot.data);
   if (tab === "captain") return captainView(slot.data);
@@ -1079,10 +1668,10 @@ const FX_LABEL = { upcoming: "Yet to play", live: "Playing now", finished: "Fini
 
 function playerCard(p, i, bench) {
   const tag = p.isCaptain
-    ? '<span class="ctag" title="Captain">C</span>'
-    : p.isViceCaptain ? '<span class="ctag vtag" title="Vice-captain">V</span>' : "";
+    ? '<span class="ctag" data-tip="Captain">C</span>'
+    : p.isViceCaptain ? '<span class="ctag vtag" data-tip="Vice-captain">V</span>' : "";
   return `<span class="pcard${bench ? " bench" : ""}" style="--i:${i}">
-    <span class="fx-dot ${p.fixtureStatus}" title="${esc(FX_LABEL[p.fixtureStatus] || p.fixtureStatus)}" aria-hidden="true"></span>
+    <span class="fx-dot ${p.fixtureStatus}" data-tip="${esc(FX_LABEL[p.fixtureStatus] || p.fixtureStatus)}" aria-hidden="true"></span>
     <span class="pname">${esc(p.name)}</span>
     <span class="pteam">${esc(p.team)}</span>
     ${tag}
@@ -1178,7 +1767,7 @@ function legendItems(view) {
 
 function notes(view) {
   const items = legendItems(view).map(([mark, label, title]) =>
-    `<div class="lg-item" title="${esc(title)}" tabindex="0"><span class="lg-mark">${mark}</span><span>${esc(label)}</span></div>`
+    `<div class="lg-item" data-tip="${esc(title)}" tabindex="0"><span class="lg-mark">${mark}</span><span>${esc(label)}</span></div>`
   ).join("");
 
   // What's left in prose is the handful of things that aren't a mark: how a
@@ -1203,9 +1792,17 @@ async function load(push) {
   const gw = Number($("gw").value);
   const max = Number($("max").value);
 
+  closeManager();
   $("go").disabled = true;
   setStatus("stale", `league ${league}`, "fetching…", "");
-  $("panel").innerHTML = "";
+
+  // Numbers already on screen are a minute old, not wrong, so they stay -
+  // dimmed - while the new ones are fetched. The skeleton is for when there
+  // is nothing worth keeping: a first load, or a different league.
+  const keep = !!(state.report && state.report.league.id === league);
+  const scroller = keep && $("panel").querySelector(".table-scroll");
+  if (scroller) scroller.classList.add("loading");
+  else $("panel").innerHTML = skeletonTable(state.view);
 
   const qs = new URLSearchParams({ league, gw, max });
   try {
@@ -1229,7 +1826,6 @@ async function load(push) {
       : null;
 
     state.report = data;
-    state.open.clear();
     state.tab.clear();
     state.teamCache.clear();
     fillGameweeks(data);
@@ -1249,15 +1845,30 @@ async function load(push) {
     // gameweek is a reorder, so it gets the FLIP slide instead of a restage.
     render(!prev || prev.league.id !== data.league.id || prev.event.id !== data.event.id);
     state.flashed = null;
-    if (isMobile()) setFiltersOpen(false);
   } catch (err) {
-    state.report = null;
     setStatus("err", `league ${league}`, "failed", "");
-    // Show the real reason. A wrong id and a rate limit need different fixes.
-    $("panel").innerHTML =
-      `<div class="msg error"><div class="m-head">could not load</div><div class="m-body">${esc(err.message)}</div></div>`;
+    // Show the real reason either way: a wrong id and a rate limit need
+    // different fixes. Where it goes depends on what is left on screen - a
+    // table you can still read keeps it, and the failure arrives beside it
+    // as a toast with the retry attached. An empty panel gets the message
+    // in the page, because a card you can dismiss must never be the only
+    // record that nothing loaded.
+    if (scroller) {
+      scroller.classList.remove("loading");
+      toast({
+        kind: "err", key: "load",
+        title: "refresh failed",
+        body: err.message,
+        actions: [{ label: "Try again", run: () => load(push) }],
+      });
+    } else {
+      state.report = null;
+      $("panel").innerHTML =
+        `<div class="msg error"><div class="m-head">could not load</div><div class="m-body">${esc(err.message)}</div></div>`;
+    }
   } finally {
     $("go").disabled = false;
+    if (isMobile()) setFiltersOpen(false);
   }
 }
 
@@ -1270,16 +1881,41 @@ function fillGameweeks(data) {
   sel.value = chosen;
 }
 
-// ── filters toggle (mobile) ──────────────────────────────────────────
-const isMobile = () => matchMedia("(max-width: 640px)").matches;
+// ── filters sheet (mobile) ───────────────────────────────────────────
+const mqMobile = matchMedia("(max-width: 640px)");
+const isMobile = () => mqMobile.matches;
+
+// One form, two homes: inline on a desktop, inside the sheet on a phone.
+// Moving the single element keeps its values, its listeners and its tab
+// order intact, which two copies kept in sync would not.
+function placeControls() {
+  const home = isMobile() ? $("sheet-body") : $("controls-slot");
+  if ($("controls").parentElement !== home) {
+    home.appendChild($("controls"));
+    moveIndicator($("view-tabs"), true);
+  }
+}
 
 function setFiltersOpen(open) {
   $("filters-toggle").setAttribute("aria-expanded", String(open));
-  $("controls").classList.toggle("collapsed", !open);
+  if (!open) return closeDialog($("filters-sheet"));
+  openDialog($("filters-sheet"));
+  // Until this moment the tabs were laid out inside a display:none dialog,
+  // so the bar had no measurable position to slide from.
+  moveIndicator($("view-tabs"), true);
 }
+
+$("filters-sheet").addEventListener("close", () => {
+  $("filters-toggle").setAttribute("aria-expanded", "false");
+});
 
 $("filters-toggle").addEventListener("click", () => {
   setFiltersOpen($("filters-toggle").getAttribute("aria-expanded") !== "true");
+});
+
+mqMobile.addEventListener("change", () => {
+  setFiltersOpen(false);
+  placeControls();
 });
 
 // ── table scroll hint ────────────────────────────────────────────────
@@ -1330,21 +1966,36 @@ $("month").addEventListener("change", () => {
   if (state.report) render();
 });
 
-for (const [id, view] of [["view-gw", "gw"], ["view-season", "season"], ["view-monthly", "monthly"]]) {
-  $(id).addEventListener("click", () => {
-    state.view = view;
-    state.open.clear();
-    $("view-gw").setAttribute("aria-pressed", String(view === "gw"));
-    $("view-season").setAttribute("aria-pressed", String(view === "season"));
-    $("view-monthly").setAttribute("aria-pressed", String(view === "monthly"));
-    if (view !== "monthly") fillSortOptions();
-    if (state.report) render();
-  });
+// The three views are one tab set over one panel, so they get the tab
+// contract: a single stop in the page's tab order, arrows to move within it.
+const VIEW_TABS = { "view-gw": "gw", "view-season": "season", "view-monthly": "monthly" };
+
+function setView(view) {
+  state.view = view;
+  closeManager();
+  for (const [id, v] of Object.entries(VIEW_TABS)) {
+    const on = v === view;
+    $(id).setAttribute("aria-selected", String(on));
+    $(id).tabIndex = on ? 0 : -1;
+    if (on) $("panel").setAttribute("aria-labelledby", id);
+  }
+  moveIndicator($("view-tabs"));
+  if (view !== "monthly") fillSortOptions();
+  if (state.report) render();
 }
+
+wireTabs($("view-tabs"), (tab) => setView(VIEW_TABS[tab.id]));
+
+// The bar is measured, so anything that can change the tabs' widths or
+// positions has to hand it back: a reflow, and the webfont replacing the
+// fallback it was first measured against.
+addEventListener("resize", () => moveIndicator($("view-tabs"), true));
+if (document.fonts) document.fonts.ready.then(() => moveIndicator($("view-tabs"), true));
 
 (function init() {
   fillSortOptions();
-  if (isMobile()) setFiltersOpen(false);
+  placeControls();
+  moveIndicator($("view-tabs"), true);
   const params = new URLSearchParams(location.search);
   // Clear the key the old build wrote, so a browser carrying a stale league
   // heals itself on the next load rather than needing devtools.
