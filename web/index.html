@@ -298,19 +298,29 @@ tbody tr.row.leader .rank { color: var(--gold); }
 .tally .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .tally .n.zero { color: var(--n4); }
 
-/* Season gameweek wins, carried beside the team name - the football
-   convention of stars over a crest, where the count is the honours and
-   not this week's result. Gold rather than the WIN badge's green because
-   it is the same kind of statement as the leader's gilt edge: a standing
-   achievement, not a live one. Deliberately borderless and unboxed so it
-   reads as an annotation on the name rather than a second badge competing
-   with the ★ WIN beside it.                                            */
-.stars {
+/* Season tallies, carried beside the team name - the football convention
+   of stars over a crest, where the count is the honours rather than this
+   week's result. One shared treatment, deliberately borderless so they
+   read as annotations on the name rather than more badges competing with
+   the week's ★ WIN / ▬ BENCH beside them; the glyph says which tally and
+   the hue says whether it is worth having.
+
+   Gold for wins, the same statement as the leader's gilt edge: a standing
+   achievement. Rose for the bench, because most-points-benched is a tally
+   of points thrown away - the palette's "went wrong" hue, the same one
+   carrying hits and rank drops. Deliberately not the ▬ BENCH badge's
+   orange: orange is the numeral hue now and belongs to the live score, so
+   reusing it here would put the loudest colour on the page next to a name
+   for the least flattering reason.                                      */
+.honour {
   font-family: var(--mono); font-size: 0.6875rem; font-weight: 600;
-  color: var(--gold); white-space: nowrap; margin-left: 0.45rem;
+  white-space: nowrap; margin-left: 0.45rem;
   font-variant-numeric: tabular-nums;
 }
-.stars .s { margin-left: 0.1rem; }
+.honour + .honour { margin-left: 0.3rem; }
+.honour .s { margin-left: 0.1rem; }
+.honour-gw { color: var(--gold); }
+.honour-bench { color: color-mix(in oklch, var(--rose) 80%, var(--n5)); }
 
 /* ── Bench meter ───────────────────────────────────────────────────────
    Magnitude across one series: one hue, length carries the value. Thin
@@ -751,16 +761,20 @@ function weekBadges(r) {
   return (b.length ? `<span class="badges">${b.join("")}</span>` : "") + honours(r);
 }
 
-// Gameweek wins across the season, beside the team name. Always star plus
-// numeral, never repeated stars: a lone ★ reads as decoration rather than
-// as a count of one, and repeated glyphs sit badly next to the ★ WIN badge
-// a current winner already carries.
+// Season tallies beside the team name. Always glyph plus numeral, never
+// repeated glyphs: a lone ★ reads as decoration rather than as a count of
+// one, and a row of them sits badly next to the ★ WIN badge a current
+// winner already carries.
 function honours(r) {
-  const n = r.gwWins || 0;
+  return tally("gw", "★", r.gwWins, r.gwWinWeeks, "gameweek win")
+       + tally("bench", "▬", r.benchWins, r.benchWinWeeks, "bench win");
+}
+
+function tally(kind, glyph, n, weeks, noun) {
   if (!n) return "";
-  const weeks = (r.gwWinWeeks || []).map((w) => "GW" + w).join(", ");
-  const label = `${n} gameweek win${n === 1 ? "" : "s"} this season${weeks ? ` — ${weeks}` : ""}`;
-  return `<span class="stars" title="${esc(label)}">★<span class="s">${n}</span></span>`;
+  const list = (weeks || []).map((w) => "GW" + w).join(", ");
+  const label = `${n} ${noun}${n === 1 ? "" : "s"} this season${list ? ` — ${list}` : ""}`;
+  return `<span class="honour honour-${kind}" title="${esc(label)}">${glyph}<span class="s">${n}</span></span>`;
 }
 
 function seasonTally(n, cls, glyph, labels, verb) {

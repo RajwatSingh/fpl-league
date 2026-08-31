@@ -65,11 +65,13 @@ type ManagerGW struct {
 	WonGW    bool `json:"wonGw"`
 	WonBench bool `json:"wonBench"`
 
-	// GWWins is the season-long count of gameweeks won, carried on the
+	// GWWins and BenchWins are the season-long tallies, carried on the
 	// gameweek row as well as the season one so the standings can show a
 	// manager's honours beside their name without switching views.
-	GWWins     int   `json:"gwWins"`
-	GWWinWeeks []int `json:"gwWinWeeks,omitempty"`
+	GWWins        int   `json:"gwWins"`
+	GWWinWeeks    []int `json:"gwWinWeeks,omitempty"`
+	BenchWins     int   `json:"benchWins"`
+	BenchWinWeeks []int `json:"benchWinWeeks,omitempty"`
 }
 
 // TransferOut is the outward shape of a transfer. The Transfer type it comes
@@ -602,6 +604,7 @@ func awardWeeklyWins(data []entryData, currentEvent int, liveNet, liveBench map[
 		rep.Gameweek[i].WonGW = contains(h.gw, rep.Event.ID)
 		rep.Gameweek[i].WonBench = contains(h.bench, rep.Event.ID)
 		rep.Gameweek[i].GWWins, rep.Gameweek[i].GWWinWeeks = len(h.gw), h.gw
+		rep.Gameweek[i].BenchWins, rep.Gameweek[i].BenchWinWeeks = len(h.bench), h.bench
 	}
 }
 
