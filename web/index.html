@@ -471,6 +471,21 @@ tbody tr.row.leader .rank { color: var(--gold); }
 }
 .pcard .ctag.vtag { background: var(--n5); }
 
+/* Transferred in this gameweek. Green is the arrival hue here and in the
+   Transfers list, so the name that reads green in one tab is the card
+   tagged IN in the other. It is also the live-fixture dot's hue, which is
+   why this is never hue alone: the word IN identifies it, the same way the
+   chip badge leans on its two letters. Outline rather than the captain
+   tag's solid fill - a squad can hold five of these and one captain, and
+   the rarer mark should stay the louder one. */
+.pcard.tf-in { border-color: color-mix(in oklch, var(--green) 45%, var(--n4)); background: color-mix(in oklch, var(--green) 8%, var(--n1)); }
+.pcard .ptag {
+  font-family: var(--mono); font-size: 0.625rem; font-weight: 700; line-height: 1;
+  color: var(--green);
+  border: 1px solid color-mix(in oklch, var(--green) 35%, transparent);
+  border-radius: 2px; padding: 0.15rem 0.3rem;
+}
+
 .fx-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 .fx-dot.upcoming { background: var(--n5); }
 .fx-dot.live { background: var(--green); animation: fxpulse 1.4s ease-in-out infinite; }
@@ -1753,56 +1768,70 @@ function teamContent(r, rep, tab) {
   const slot = ensureTeamData(r.entryId, rep);
   if (slot.status === "loading") return skeletonSquad();
   if (slot.status === "error") return `<p class="opt-error">${esc(slot.message)}</p>`;
-  if (tab === "team") return squadView(slot.data);
-  if (tab === "captain") return captainView(slot.data);
-  return toPlayView(slot.data);
+  const fresh = transferredIn(r.entryId, rep);
+  if (tab === "team") return squadView(slot.data, fresh);
+  if (tab === "captain") return captainView(slot.data, fresh);
+  return toPlayView(slot.data, fresh);
 }
 
 const FX_LABEL = { upcoming: "Yet to play", live: "Playing now", finished: "Finished", none: "No fixture" };
 
-function playerCard(p, i, bench) {
+function playerCard(p, i, bench, isNew) {
   const tag = p.isCaptain
     ? '<span class="ctag" data-tip="Captain">C</span>'
     : p.isViceCaptain ? '<span class="ctag vtag" data-tip="Vice-captain">V</span>' : "";
-  return `<span class="pcard${bench ? " bench" : ""}" style="--i:${i}">
+  // Both tags can land on one card - a captain bought this week - so the
+  // arrival mark is appended rather than made part of the same either/or.
+  const inTag = isNew ? '<span class="ptag" data-tip="Transferred in this gameweek">IN</span>' : "";
+  return `<span class="pcard${bench ? " bench" : ""}${isNew ? " tf-in" : ""}" style="--i:${i}">
     <span class="fx-dot ${p.fixtureStatus}" data-tip="${esc(FX_LABEL[p.fixtureStatus] || p.fixtureStatus)}" aria-hidden="true"></span>
     <span class="pname">${esc(p.name)}</span>
     <span class="pteam">${esc(p.team)}</span>
-    ${tag}
+    ${tag}${inTag}
     <span class="ppts">${p.points}</span>
   </span>`;
 }
 
-function squadView(d) {
+// Who this manager bought for the gameweek the squad below belongs to. The
+// detail only ever hangs off a gameweek row, so it is read from there even
+// when the dialog was opened from the season or monthly table - those rows
+// span a whole season and carry none, but the squad on screen is still one
+// gameweek's, and it is this one.
+function transferredIn(entryId, rep) {
+  const gwRow = findEntry(rep.gameweek, entryId);
+  return new Set(((gwRow && gwRow.transferDetail) || []).map((t) => t.in));
+}
+
+function squadView(d, fresh) {
   let i = 0;
   const groups = ["GKP", "DEF", "MID", "FWD"].map((pos) => {
     const players = d.starters.filter((p) => p.position === pos);
     if (!players.length) return "";
     return `<div class="squad-group"><div class="squad-label">${pos}</div><div class="squad-row">${
-      players.map((p) => playerCard(p, i++)).join("")}</div></div>`;
+      players.map((p) => playerCard(p, i++, false, fresh.has(p.element))).join("")}</div></div>`;
   }).join("");
   const bench = `<div class="squad-group"><div class="squad-label">Bench</div><div class="squad-row">${
-    d.bench.map((p) => playerCard(p, i++, true)).join("")}</div></div>`;
+    d.bench.map((p) => playerCard(p, i++, true, fresh.has(p.element))).join("")}</div></div>`;
   const chipNote = d.chip
     ? `<p class="opt-loading">${esc(d.chip)} played this gameweek${d.chip === "BB" ? " — bench points count." : "."}</p>` : "";
   return `${chipNote}${groups}${bench}`;
 }
 
-function captainView(d) {
+function captainView(d, fresh) {
   const card = (p, label) => p
-    ? `<div class="squad-group"><div class="squad-label">${esc(label)}</div><div class="squad-row">${playerCard(p, 0)}</div></div>`
+    ? `<div class="squad-group"><div class="squad-label">${esc(label)}</div><div class="squad-row">${playerCard(p, 0, false, fresh.has(p.element))}</div></div>`
     : "";
   return card(d.captain, `Captain (${d.captain ? d.captain.multiplier : 1}×)`) + card(d.vice, "Vice-captain");
 }
 
-function toPlayView(d) {
+function toPlayView(d, fresh) {
   const stat = (n, l, i) => `<div class="toplay-stat" style="--i:${i}"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`;
   const relevant = d.chip === "BB" ? [...d.starters, ...d.bench] : d.starters;
   const upcoming = relevant.filter((p) => p.fixtureStatus === "upcoming");
   const live = relevant.filter((p) => p.fixtureStatus === "live");
   const list = (players, label) => players.length
     ? `<div class="squad-group"><div class="squad-label">${esc(label)}</div><div class="squad-row">${
-        players.map((p, i) => playerCard(p, i)).join("")}</div></div>`
+        players.map((p, i) => playerCard(p, i, false, fresh.has(p.element))).join("")}</div></div>`
     : "";
   return `
     <div class="toplay-stats">${stat(d.toPlay, "yet to play", 0)}${stat(d.live, "playing now", 1)}${stat(d.finished, "finished", 2)}</div>
