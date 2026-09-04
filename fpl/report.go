@@ -96,6 +96,94 @@ func toTransferOut(t Transfer) TransferOut {
 	}
 }
 
+// netTransfers reduces one gameweek's raw transfer rows to the squad change a
+// manager actually made.
+//
+// entry/{id}/transfers/ is an edit log, not a summary. Off a wildcard the two
+// are the same thing and this is a no-op. On a wildcard they are not: every
+// draft swap made while building the team is logged, including the ones undone
+// a minute later, so the log churns - one entry in GW3 recorded 239 rows for a
+// fifteen-player squad, most of them Isak out, Isak back in. Rendering the log
+// verbatim is what "Isak → João Pedro" followed by "João Pedro → Isak" is: a
+// record of someone changing their mind, not of a transfer.
+//
+// So walk it oldest-first and let round-trips cancel: buying back a player you
+// sold this week erases the sale, selling one you just bought erases the
+// purchase. What survives is the net in and out lists, which are then paired
+// by position - a squad always ends the week with the same 2/5/5/3 shape it
+// started with, so the goalkeeper who left is the one the incoming goalkeeper
+// replaced, and that pairing is the one a manager would recognise.
+func netTransfers(all []Transfer, event int, elementTypes map[int]int) []TransferOut {
+	var in, out []Transfer
+	// The API returns newest first; cancellation only reads correctly in the
+	// order the manager actually made the moves.
+	for i := len(all) - 1; i >= 0; i-- {
+		t := all[i]
+		if t.Event != event {
+			continue
+		}
+		if idx := indexByOut(out, t.ElementIn); idx >= 0 {
+			out = append(out[:idx:idx], out[idx+1:]...)
+		} else {
+			in = append(in, t)
+		}
+		if idx := indexByIn(in, t.ElementOut); idx >= 0 {
+			in = append(in[:idx:idx], in[idx+1:]...)
+		} else {
+			out = append(out, t)
+		}
+	}
+
+	// Pair within a position first, then let anything left over pair by
+	// order. The fallback should never fire on well-formed data, but a
+	// mid-week squad shape is not worth dropping a transfer over.
+	paired := make([]TransferOut, 0, len(in))
+	used := make([]bool, len(out))
+	takeOut := func(want int) (Transfer, bool) {
+		for i, t := range out {
+			if !used[i] && (want < 0 || elementTypes[t.ElementOut] == want) {
+				used[i] = true
+				return t, true
+			}
+		}
+		return Transfer{}, false
+	}
+	for _, ti := range in {
+		to, ok := takeOut(elementTypes[ti.ElementIn])
+		if !ok {
+			to, ok = takeOut(-1)
+		}
+		p := TransferOut{
+			In:     ti.ElementIn,
+			InCost: ti.ElementInCost,
+			Event:  event,
+		}
+		if ok {
+			p.Out, p.OutCost = to.ElementOut, to.ElementOutCost
+		}
+		paired = append(paired, p)
+	}
+	return paired
+}
+
+func indexByIn(list []Transfer, element int) int {
+	for i, t := range list {
+		if t.ElementIn == element {
+			return i
+		}
+	}
+	return -1
+}
+
+func indexByOut(list []Transfer, element int) int {
+	for i, t := range list {
+		if t.ElementOut == element {
+			return i
+		}
+	}
+	return -1
+}
+
 // ManagerSeason aggregates a manager's whole season.
 type ManagerSeason struct {
 	Entry      string `json:"entry"`
@@ -187,6 +275,11 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 	boot, err := c.Bootstrap(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	elementTypes := make(map[int]int, len(boot.Elements))
+	for _, e := range boot.Elements {
+		elementTypes[e.ID] = e.ElementType
 	}
 
 	ev, ok := boot.CurrentEvent()
@@ -395,11 +488,7 @@ func (c *Client) BuildReport(ctx context.Context, leagueID int, opts Options) (*
 			}
 		}
 
-		for _, t := range d.transfers {
-			if t.Event == ev.ID {
-				gw.TransferDetail = append(gw.TransferDetail, toTransferOut(t))
-			}
-		}
+		gw.TransferDetail = netTransfers(d.transfers, ev.ID, elementTypes)
 
 		rep.Gameweek = append(rep.Gameweek, gw)
 		rep.Season = append(rep.Season, seasonFor(d))
