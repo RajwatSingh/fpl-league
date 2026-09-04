@@ -402,9 +402,14 @@ tbody tr.row.leader .rank { color: var(--gold); }
 .derived { color: var(--orange); font-size: 0.75rem; }
 
 /* ── Transfer detail ───────────────────────────────────────────────────*/
-.tf-list { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-family: var(--mono); font-size: 0.75rem; color: var(--n7); }
+/* One transfer per line. A three-column grid rather than a stack of flex
+   rows so every arrow lands in the same column - out names are ragged-right
+   and the incoming names all start together, which is what makes a column
+   of transfers scannable instead of a wall of names. */
+.tf-list { display: grid; grid-template-columns: auto auto 1fr; gap: 0.3rem 0; align-items: baseline; font-family: var(--mono); font-size: 0.75rem; color: var(--n7); }
 .tf-list .out { color: var(--n6); }
-.tf-list .arrow { color: var(--n4); margin: 0 0.3rem; }
+.tf-list .arrow { color: var(--n4); padding: 0 0.5rem; }
+.tf-list .in { color: var(--green); }
 .tf-none { font-size: 0.75rem; color: var(--n6); font-style: italic; }
 
 /* ── Manager options ──────────────────────────────────────────────────
@@ -1715,7 +1720,9 @@ function transfersContent(r, rep) {
   const tf = r.transferDetail || [];
   return tf.length
     ? `<div class="tf-list">${tf.map((t) =>
-        `<span><span class="out">${esc(rep.playerNames[t.out] || t.out)}</span><span class="arrow">→</span>${esc(rep.playerNames[t.in] || t.in)}</span>`
+        `<span class="out">${esc(rep.playerNames[t.out] || t.out)}</span>` +
+        `<span class="arrow" role="img" aria-label="out for">→</span>` +
+        `<span class="in">${esc(rep.playerNames[t.in] || t.in)}</span>`
       ).join("")}</div>`
     : `<p class="tf-none">No transfers this gameweek.</p>`;
 }
