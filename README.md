@@ -85,6 +85,42 @@ The portfolio renders nothing when the FPL API is down, on the grounds that no
 reader of a portfolio needs to know. This inverts that: someone here is trying
 to get an answer, so a failure shows the actual upstream reason.
 
+### This week, at the top
+
+The masthead used to be a 110px band carrying a league name, a season, a
+gameweek and a manager count — three of them ambient, none of them the reason
+anyone opened the page. It now answers the three questions a league of friends
+actually argues about, and answers them in **names rather than metrics**: who
+won the week, who is top, who left the most behind. Ties are shared, so a field
+names the holder with the best figure and marks the others `+n`.
+
+Three fields of one band, split by the rule the masthead already had — not
+three cards. No shadow, no radius, no border of their own; the only accent is a
+left edge in each honour's own hue, which is the leader's gilt edge idiom the
+table has used all along.
+
+The pitch's centre circle used to be drawn across this space. It was right when
+the band was mostly air, and wrong the moment three people's names were sitting
+under it, so it was removed rather than shrunk. The favicon still carries the
+mark.
+
+### The table's shape is a fact about the week
+
+A column every row leaves empty is not a column — it is 76px of middle dots
+holding the table open. Nobody took a hit this week, so there is no Hit column;
+the gameweek has finished, so there is no To play. On a typical settled week
+that takes ten columns down to eight. Sorting by a dropped column brings it
+back, since a table that hid the column you asked to sort by would be arguing
+with the control that built it.
+
+The table is `width: 100%` with short columns, and the browser used to share
+the slack out evenly: measured at 1380px, the content came to 560px and the
+other 650 became gaps — `Hit` got 76px to hold a middle dot. Every column
+floated alone in its own pool and the eye had to cross a void to get from a
+team's name to its score. Team now absorbs all of it and every other column
+shrinks to its content, so the numbers close up into a block that can be
+compared down the page.
+
 ### Two shapes, one set of rows
 
 Above 640px the report is the ten-column sortable table. Below it, the same

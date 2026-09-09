@@ -60,9 +60,6 @@
      making claims about the data. 0.015 in lightness is under that and
      over the step where the page reads as a flat sheet. */
   --turf: color-mix(in oklch, var(--n1) 20%, transparent);
-  /* Pitch markings are chalk, so they take the furniture step rather than
-     an accent: they say where you are, never what anything is worth. */
-  --chalk: color-mix(in oklch, var(--n6) 22%, transparent);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -92,7 +89,10 @@ body {
 }
 .skip:focus { left: 0.75rem; top: 0.75rem; }
 
-.wrap { max-width: 78rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+/* 78rem was set when ten columns were sharing the slack between them and
+   needed the room. With the numbers closed up on the right, that width
+   only bought a wider gutter between a team and its score. */
+.wrap { max-width: 68rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
 
 /* ── Masthead ──────────────────────────────────────────────────────────
    The league name used to be the `subject` field of a systemctl-style
@@ -154,18 +154,67 @@ body {
 .strip .right { margin-left: auto; color: var(--n6); }
 .strip > span { position: relative; }
 
-/* The centre circle, centred on the halfway line and cropped by the block -
-   the same three marks as the favicon, at the scale you would meet them at
-   standing on the spot. Chalk weight, so it sits under the type rather
-   than competing with it. */
-.mark {
-  position: absolute; left: 50%; top: 0;
-  transform: translate(-50%, -50%);
-  width: clamp(7rem, 22vw, 10.5rem); aspect-ratio: 1;
-  fill: none; stroke: var(--chalk); stroke-width: 1;
-  pointer-events: none;
+/* The centre circle used to be drawn here, on the halfway line, cropped by
+   the block. It was right when the masthead was four short strings and a
+   lot of air - it gave the empty half of the band something to be. Now the
+   band below carries three people's names, and the circle's lower half was
+   drawn straight across them.
+
+   Rather than shrink it to something that fits, it goes. The decoration
+   existed because the space was empty, and the space is not empty any more.
+   The favicon still carries the mark, which is where it does its work.  */
+
+/* ── This week ─────────────────────────────────────────────────────────
+   The masthead was a 110px band across the full width carrying a league
+   name, a season, a gameweek and a manager count - three of them ambient,
+   none of them the reason anyone opened the page. In a league of twelve
+   friends the questions are always the same three, and they are about
+   people: who won it, who is top, who threw the most away.
+
+   So the band answers them, in names rather than metrics. Three fields of
+   one band, split by the rule the masthead already had - not three cards.
+   No shadow, no radius, no border of their own; the only accent is a left
+   edge in each honour's own hue, which is the leader's gilt edge idiom the
+   table has used all along.                                              */
+.mh-hon {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--n4);
 }
-.mark .spot { fill: var(--chalk); stroke: none; }
+.mh-hon:empty { display: none; }
+.hon {
+  min-width: 0;
+  padding: 0.6rem 0.9rem 0.7rem;
+  border-left: 3px solid var(--hh);
+}
+.hon + .hon { box-shadow: -1px 0 0 var(--n4); }
+.hon-won  { --hh: var(--green); }
+.hon-top  { --hh: var(--gold); }
+.hon-left { --hh: var(--orange); }
+
+/* Sentence case, not a tracked-out label: without this line "roman fc 70"
+   says nothing, so it is doing work rather than decorating the field. */
+.hon-cap { font-size: 0.75rem; color: var(--n6); line-height: 1.3; }
+.hon-line { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.1rem; }
+.hon-team {
+  font-weight: 500; color: var(--n8); font-size: 0.9375rem; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Beside the name rather than flung to the field's right edge: three
+   different quantities have nothing to gain from sharing a right margin,
+   and at this width the number had drifted far enough from the team that
+   the two stopped reading as one statement. */
+.hon-n {
+  flex: none;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 1rem; color: var(--hh);
+}
+.hon-mgr {
+  font-size: 0.8125rem; color: var(--n6); line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Ties are shared, so more than one team can hold an honour. The band
+   names the first and says how many others; the tooltip lists them. */
+.hon-more { font-family: var(--mono); font-size: 0.75rem; color: var(--n5); }
 
 /* ── Controls ──────────────────────────────────────────────────────────
    Inputs get the strong border step: an edge you are meant to click must
@@ -183,7 +232,7 @@ input[type="number"], select {
   font-family: var(--mono); font-size: 0.8125rem;
   background: var(--n1); color: var(--n8);
   border: 1px solid var(--n5); border-radius: var(--radius);
-  padding: 0.5rem 0.625rem; min-width: 8.5rem;
+  padding: 0.5rem 0.625rem; min-width: 7.25rem;
   line-height: 1.4;
   transition: border-color 180ms var(--ease);
 }
@@ -229,8 +278,13 @@ button:disabled { opacity: 0.5; cursor: default; }
   border-color: var(--blue);
 }
 
+/* A league id is six digits. The number input was taking a browser default
+   of 208px for them, which was most of the reason Refresh could not fit on
+   the row with everything else. */
+#league { width: 7rem; }
+
 .sortrow { display: flex; gap: 0.375rem; }
-.sortrow select { min-width: 9rem; }
+.sortrow select { min-width: 8rem; }
 .sortrow button { min-width: 2.25rem; padding: 0.5rem 0; font-size: 0.875rem; }
 
 /* Selection and hover have to be different channels, not two steps on the
@@ -268,15 +322,32 @@ button:disabled { opacity: 0.5; cursor: default; }
 }
 .eyebrow::after { content: ""; height: 1px; flex: 1; background: var(--n4); }
 
-/* ── Table ─────────────────────────────────────────────────────────────*/
+/* ── Table ─────────────────────────────────────────────────────────────
+   The table is 100% wide with ten short columns, and the browser used to
+   share the slack out evenly: measured at 1380px, the content came to
+   560px and the other 650 became gaps. Hit got 76px to hold a middle dot.
+   Every column floated alone in its own pool and the eye had to cross a
+   void to get from a team's name to its score.
+
+   Giving one column all of it fixes that: Team absorbs the slack, every
+   other column shrinks to its content, and the numbers close up into a
+   block that can actually be compared down the page. The gap that is left
+   is one deliberate gutter between who and how many, which is how a
+   printed league table has always been set.                              */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+thead th:nth-child(2), tbody td:nth-child(2) { width: 100%; }
 thead th {
   font-family: var(--mono); font-size: 0.625rem; font-weight: 600;
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--n6);
   text-align: right; padding: 0 0.6rem 0.55rem; white-space: nowrap;
   border-bottom: 1px solid var(--n4);
 }
+/* The numeric block gets the roomier gutters. Team is absorbing all the
+   table's slack now, so anything not spent here is spent widening the gap
+   between a side's name and its score - and these are the columns a reader
+   is comparing down the page, which is what needs the air. */
+thead th:nth-child(n+3), tbody td:nth-child(n+3) { padding-left: 1.1rem; padding-right: 1.1rem; }
 thead th:nth-child(-n+2) { text-align: left; }
 thead th.sortable { cursor: pointer; }
 thead th.sortable:hover { color: var(--blue); }
@@ -332,8 +403,14 @@ tbody tr.row:hover { background: var(--n1); }
    A league table's whole point is the gap between people. The leader gets
    this site's one gilt edge - a real table's convention, not a trophy
    emoji - as an inset shadow so it costs no layout. */
+/* The leader is the one row that differs from the other twenty-four: the
+   gilt edge, a gold rank, and the height to go with it. Same treatment as
+   the ladder's leader, so the top of the league looks like the top of the
+   league in both renderings. */
 tbody tr.row.leader { box-shadow: inset 3px 0 0 0 var(--gold); }
-tbody tr.row.leader .rank { color: var(--gold); }
+tbody tr.row.leader .rank { color: var(--gold); font-size: 1rem; }
+tbody tr.row.leader td { padding-top: 0.7rem; padding-bottom: 0.7rem; }
+tbody tr.row.leader .who .name { font-size: 0.9375rem; }
 
 /* ── Icons ─────────────────────────────────────────────────────────────
    Every icon here is a football object, not a UI metaphor: the armband,
@@ -1007,6 +1084,8 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
   #toaster { right: 0.75rem; left: 0.75rem; bottom: 0.75rem; width: auto; }
   .toggle button { font-size: 0.8125rem; padding: 0.5rem 0.3rem; }
 
+  #league { width: 100%; }
+
   input[type="number"], select, button {
     font-size: 1rem;              /* 16px: below this iOS zooms on focus */
     min-height: 2.75rem;          /* 44px touch target */
@@ -1030,6 +1109,18 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
 
   .mh-top { padding: 0.7rem 0.75rem 0.6rem; }
   .strip { padding: 0.5rem 0.75rem 0.55rem; font-size: 0.6875rem; }
+
+  /* Three fields across a 402px screen is 134px each, which is not a
+     layout. They stack, and each becomes one line: the caption, the team,
+     the number. The manager's name goes - the ladder below carries it, and
+     what this band is for is the answer, not the full identity. */
+  .mh-hon { grid-template-columns: 1fr; }
+  .hon { display: flex; align-items: baseline; gap: 0.6rem; padding: 0.45rem 0.75rem; }
+  .hon + .hon { box-shadow: 0 -1px 0 var(--n4); }
+  .hon-cap { flex: none; }
+  .hon-line { margin-top: 0; flex: 1; min-width: 0; }
+  .hon-n { margin-left: auto; }
+  .hon-mgr { display: none; }
 
   /* The table does not render at this width - render() builds the ladder
      instead - so nothing here has to make ten columns fit a phone. What is
@@ -1113,14 +1204,11 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
       <span class="season" id="season"></span>
     </div>
     <div class="strip">
-      <svg class="mark" viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="46" vector-effect="non-scaling-stroke"/>
-        <circle class="spot" cx="50" cy="50" r="1.6"/>
-      </svg>
       <span class="dot stale" id="dot" role="img" aria-label="status"></span>
       <span class="state" id="state">idle</span>
       <span class="right" id="count"></span>
     </div>
+    <div class="mh-hon" id="honours"></div>
   </header>
 
   <button type="button" class="filters-toggle" id="filters-toggle" aria-expanded="true" aria-controls="controls">
@@ -1232,6 +1320,46 @@ function setStatus(kind, subject, text, right) {
   $("subject").textContent = subject;
   $("state").textContent = text;
   $("count").textContent = right || "";
+}
+
+// ── this week ─────────────────────────────────────────────────────────
+// The three questions a mini-league actually argues about. All three are
+// gameweek facts, so the band reads the same whichever view is open - it
+// describes the report's gameweek, which the strip above it names.
+//
+// Each is rendered only if it has a holder: before a gameweek kicks off
+// nobody has won it, and a Bench Boost week can leave nobody holding the
+// bench (the bench played, so nothing was left behind). An honour with no
+// holder is left out rather than shown as a dash, and if none of the three
+// has one the band removes itself.
+function renderHonours(rep) {
+  const rows = (rep && rep.gameweek) || [];
+  const host = $("honours");
+  if (!rows.length) return (host.innerHTML = "");
+
+  const field = (cls, caption, holders, value, noun) => {
+    if (!holders.length) return "";
+    // Named by the best figure, not by whoever sits highest in the table.
+    // A genuine tie holds equal values so the order would not matter, but
+    // the band must not be able to report a lower number than one of the
+    // holders it is standing in for.
+    const [first, ...rest] = [...holders].sort((a, b) => value(b) - value(a));
+    // Ties are shared. Name the first, count the others, list them all in
+    // the tooltip - three names side by side would not fit the field.
+    const more = rest.length
+      ? `<span class="hon-more" data-tip="${esc(`Shared with ${rest.map((r) => r.entry).join(", ")}`)}">+${rest.length}</span>`
+      : "";
+    return `<div class="hon ${cls}" data-tip="${esc(`${caption}: ${value(first)} ${noun}`)}">
+      <div class="hon-cap">${caption}</div>
+      <div class="hon-line"><span class="hon-team">${esc(first.entry)}</span>${more}<span class="hon-n">${value(first)}</span></div>
+      <div class="hon-mgr">${esc(first.manager)}</div>
+    </div>`;
+  };
+
+  host.innerHTML =
+      field("hon-won", "Won the week", rows.filter((r) => r.wonGw), (r) => r.netPoints, "points, net of hits")
+    + field("hon-top", "Top of the table", rows.filter((r) => r.leagueRank === 1), (r) => r.total, "points overall")
+    + field("hon-left", "Most left behind", rows.filter((r) => r.wonBench), (r) => r.bench, "points on the bench");
 }
 
 // Only meaningful before a deadline - once it's passed there's nothing left
@@ -1553,14 +1681,19 @@ const gwCols = [
       ? `<span class="num gwpts${state.flashed && state.flashed.has(r.entryId) ? " flash" : ""}">${r.netPoints}</span>`
       : '<span class="faint">—</span>',
     title: (r) => r.played ? `${r.grossPoints} scored${r.hit ? ` − ${r.hit} hit` : ""} = ${r.netPoints}` : "not in this gameweek" },
-  { key: "hit", label: "Hit", num: true, cell: (r) => r.hit ? `<span class="num hit">−${r.hit}</span>` : '<span class="faint">·</span>' },
+  { key: "hit", label: "Hit", num: true, has: (rows) => rows.some((r) => r.hit),
+    cell: (r) => r.hit ? hitBadge(r.hit, `${r.grossPoints} scored − ${r.hit} for transfers = ${r.netPoints}`) : '<span class="faint">·</span>' },
   { key: "bench", label: "Bench", num: true, cell: (r) => r.played
       ? `<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" data-tip="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}`
       : '<span class="faint">—</span>' },
-  { key: "chip", label: "Chip", cell: (r) => r.chip ? chipBadge(r.chip) : '<span class="faint">·</span>' },
-  { key: "transfers", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
+  { key: "chip", label: "Chip", has: (rows) => rows.some((r) => r.chip),
+    cell: (r) => r.chip ? chipBadge(r.chip) : '<span class="faint">·</span>' },
+  // "TF" is our word for it, not the reader's.
+  { key: "transfers", label: "Transfers", num: true, has: (rows) => rows.some((r) => r.transfers),
+    cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
   { key: "captain", label: "Captain", cell: (r) => r.captain ? `<span class="dim">${esc(r.captain)}</span>` : '<span class="faint">—</span>' },
-  { key: "toPlay", label: "To play", num: true, cell: (r) => r.played
+  { key: "toPlay", label: "To play", num: true, has: (rows) => rows.some((r) => r.toPlay),
+    cell: (r) => r.played
       ? `<span class="num${r.toPlay ? "" : " dim"}">${r.toPlay}</span>`
       : '<span class="faint">—</span>',
     title: (r) => r.played ? `${r.toPlay} yet to play · ${r.playingNow} playing now · ${r.finishedPlaying} finished (of ${r.squadCount})` : "not in this gameweek" },
@@ -1571,17 +1704,22 @@ const seasonCols = [
   { key: "leagueRank", label: "#", sortLabel: "League rank", cell: (r, ctx) => rankCell(r, ctx) },
   { key: "manager", label: "Team", cell: (r) => `<span class="who"><span class="name">${esc(r.entry)}</span><span class="team">${esc(r.manager)}</span></span>` },
   { key: "total", label: "Total", num: true, cell: (r) => `<span class="num gwpts">${r.total}</span>` },
-  { key: "gwWins", label: "Wins", sortLabel: "Gameweek wins", num: true, cell: (r) =>
+  { key: "gwWins", label: "Wins", sortLabel: "Gameweek wins", num: true, has: (rows) => rows.some((r) => r.gwWins),
+    cell: (r) =>
       seasonTally(r.gwWins, "win", "star", r.gwWinWeeks && r.gwWinWeeks.map((w) => "GW" + w), "Gameweek wins:") },
-  { key: "monthWins", label: "Months", sortLabel: "Month wins", num: true, cell: (r) =>
+  { key: "monthWins", label: "Months", sortLabel: "Month wins", num: true, has: (rows) => rows.some((r) => r.monthWins),
+    cell: (r) =>
       seasonTally(r.monthWins, "win", "diamond", r.monthWinNames, "Months won:") },
   { key: "benchTotal", label: "Benched", num: true, cell: (r, ctx) => `<span class="bench">${meter(r.benchTotal, ctx.maxBench)}<span class="num val">${r.benchTotal}</span></span>` },
-  { key: "hitsTotal", label: "Hits", num: true, cell: (r) => r.hitsTotal ? `<span class="num hit">−${r.hitsTotal}</span>` : '<span class="faint">·</span>' },
-  { key: "transfersTotal", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => `<span class="num dim">${r.transfersTotal}</span>` },
+  { key: "hitsTotal", label: "Hits", num: true, has: (rows) => rows.some((r) => r.hitsTotal),
+    cell: (r) => r.hitsTotal ? hitBadge(r.hitsTotal, `${r.hitsTotal} points taken off for transfers this season`) : '<span class="faint">·</span>' },
+  { key: "transfersTotal", label: "Transfers", num: true, cell: (r) => `<span class="num dim">${r.transfersTotal}</span>` },
   { key: "bestGwPoints", label: "Best GW", num: true, cell: (r) => r.bestGw ? `<span class="num">${r.bestGwPoints}</span> <span class="dim">GW${r.bestGw}</span>` : '<span class="faint">—</span>' },
-  { key: "benchWins", label: "Bench wins", sortLabel: "Bench wins", num: true, cell: (r) =>
+  { key: "benchWins", label: "Bench wins", sortLabel: "Bench wins", num: true, has: (rows) => rows.some((r) => r.benchWins),
+    cell: (r) =>
       seasonTally(r.benchWins, "benchwin", "bench", r.benchWinWeeks && r.benchWinWeeks.map((w) => "GW" + w), "Bench wins:") },
-  { key: "chips", label: "Chips used", nosort: true, cell: (r) => (r.chipsUsed && r.chipsUsed.length)
+  { key: "chips", label: "Chips used", nosort: true, has: (rows) => rows.some((r) => r.chipsUsed && r.chipsUsed.length),
+    cell: (r) => (r.chipsUsed && r.chipsUsed.length)
       ? r.chipsUsed.map((c) => chipBadge(chipLabel(c.name), c.event)).join(" ")
       : '<span class="faint">·</span>' },
 ];
@@ -1602,6 +1740,18 @@ function setSort(key) {
 
 function columnsFor(view) {
   return view === "season" ? seasonCols : gwCols;
+}
+
+// A column every row leaves empty is not a column, it is 76px of middle
+// dots holding the table open. Nobody took a hit this week, so there is no
+// Hit column; the gameweek has finished, so there is no To play. What the
+// table is shaped like becomes a fact about the week.
+//
+// The sort key is the exception: sorting by Hits and finding no Hits column
+// would be the table arguing with the control that built it. A column you
+// have asked to sort by is always shown, empty or not.
+function visibleColumns(view, rows) {
+  return columnsFor(view).filter((c) => !c.has || c.key === state.sort.key || c.has(rows));
 }
 
 // Rebuilds the dropdown when the view changes, since the two views expose
@@ -1866,7 +2016,7 @@ function render(fresh) {
 
   const season = state.view === "season";
   const rows = [...(season ? rep.season : rep.gameweek)];
-  const cols = columnsFor(state.view);
+  const cols = visibleColumns(state.view, rows);
   const benchKey = season ? "benchTotal" : "bench";
   const ctx = {
     maxBench: Math.max(1, ...rows.map((r) => r[benchKey] || 0)),
@@ -2406,6 +2556,7 @@ async function load(push) {
     const stateText = (data.provisional ? `${data.event.name} · provisional` : data.event.name)
       + (countdown ? ` · ${countdown}` : "");
     $("season").textContent = seasonLabel(data.event.deadline_time);
+    renderHonours(data);
     setStatus("ok", data.league.name || `league ${league}`, stateText, `${data.gameweek.length} managers`);
     // Only a load replays the row entrance; a refresh of the same league and
     // gameweek is a reorder, so it gets the FLIP slide instead of a restage.
@@ -2429,6 +2580,7 @@ async function load(push) {
       });
     } else {
       state.report = null;
+      $("honours").innerHTML = "";
       $("panel").innerHTML =
         `<div class="msg error"><div class="m-head">could not load</div><div class="m-body">${esc(err.message)}</div></div>`;
     }
