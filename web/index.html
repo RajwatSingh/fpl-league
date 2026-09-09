@@ -335,34 +335,58 @@ tbody tr.row:hover { background: var(--n1); }
 tbody tr.row.leader { box-shadow: inset 3px 0 0 0 var(--gold); }
 tbody tr.row.leader .rank { color: var(--gold); }
 
+/* ── Icons ─────────────────────────────────────────────────────────────
+   Every icon here is a football object, not a UI metaphor: the armband,
+   the substitution arrows, the card a referee shows, the bench, the clock.
+   Drawn once as <symbol>s and stroked in currentColor, so an icon inherits
+   the hue of whatever badge or fact it sits in and there is no second
+   place for a colour to drift.
+
+   They are sized in em rather than rem deliberately - the same symbol
+   appears in a 17px score line and an 11px rail, and it has to grow with
+   the text beside it rather than sit in it at a fixed size. */
+.ic {
+  width: 1em; height: 1em; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: -0.125em;
+}
+/* The two honours are solid marks rather than outlines - a star drawn as
+   an outline at 11px is a smudge, and these are the smallest icons here. */
+.ic-solid { fill: currentColor; stroke: none; }
+
+/* ── Badges ────────────────────────────────────────────────────────────
+   One rule, one hue variable. Every badge was an outline at 35% alpha and
+   10px, which on a phone was a faint rectangle with something inside it;
+   these are solid objects - a tinted ground, a readable border, an icon
+   and a word - so the thing that happened is legible at arm's length.
+
+   The word stays. Four badge hues would not survive a CVD check (see the
+   palette note above), so the label is what identifies a badge and the
+   hue is only ever the second channel. */
+.badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-family: var(--mono); font-size: 0.6875rem; font-weight: 600;
+  letter-spacing: 0.03em; line-height: 1.35; white-space: nowrap;
+  border-radius: 3px; padding: 0.1rem 0.34rem;
+  color: var(--bh);
+  background: color-mix(in oklch, var(--bh) 15%, var(--n1));
+  border: 1px solid color-mix(in oklch, var(--bh) 42%, transparent);
+}
+.badge.win      { --bh: var(--green); }
+.badge.benchwin { --bh: var(--orange); }
+.badge.hitb     { --bh: var(--rose); }
 /* Chips are categorical, but four hues from this palette would not
    survive CVD. One hue, and the two-letter label does the identifying. */
-.chip {
-  font-family: var(--mono); font-size: 0.6875rem; font-weight: 500;
-  color: var(--purple);
-  border: 1px solid color-mix(in oklch, var(--purple) 35%, transparent);
-  border-radius: 2px; padding: 0.1rem 0.3rem;
-}
+.chip           { --bh: var(--purple); }
+.chip .ev { color: color-mix(in oklch, var(--purple) 60%, var(--n5)); font-weight: 500; }
 
 /* ── Weekly honours ───────────────────────────────────────────────────
    Two tallies, and they must not be told apart by hue alone: each badge
    carries its own word, and the season columns carry a count. Green is
    the win (success, per the palette contract); orange is the bench,
    matching the meter directly beside it in the same table.            */
-.badge {
-  font-family: var(--mono); font-size: 0.625rem; font-weight: 600;
-  letter-spacing: 0.06em; border-radius: 2px; padding: 0.05rem 0.28rem;
-  white-space: nowrap;
-}
-.badge.win {
-  color: var(--green);
-  border: 1px solid color-mix(in oklch, var(--green) 35%, transparent);
-}
-.badge.benchwin {
-  color: var(--orange);
-  border: 1px solid color-mix(in oklch, var(--orange) 35%, transparent);
-}
-.badges { display: inline-flex; gap: 0.3rem; margin-left: 0.4rem; vertical-align: 1px; }
+.badges { display: inline-flex; gap: 0.3rem; margin-left: 0.4rem; vertical-align: -1px; }
 .tally { display: inline-flex; align-items: center; gap: 0.35rem; justify-content: flex-end; }
 .tally .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .tally .n.zero { color: var(--n4); }
@@ -382,6 +406,7 @@ tbody tr.row.leader .rank { color: var(--gold); }
    reusing it here would put the loudest colour on the page next to a name
    for the least flattering reason.                                      */
 .honour {
+  display: inline-flex; align-items: center; gap: 0.15rem;
   font-family: var(--mono); font-size: 0.6875rem; font-weight: 600;
   white-space: nowrap; margin-left: 0.45rem;
   font-variant-numeric: tabular-nums;
@@ -400,6 +425,170 @@ tbody tr.row.leader .rank { color: var(--gold); }
 .meter { width: 3.5rem; height: 5px; background: var(--n2); border-radius: 3px; overflow: hidden; flex: none; }
 .meter > i { display: block; height: 100%; background: var(--orange); border-radius: 3px; }
 .derived { color: var(--orange); font-size: 0.75rem; }
+
+/* ── Ladder ────────────────────────────────────────────────────────────
+   The phone rendering of a league table. The table it replaces kept all
+   ten columns and scrolled sideways, which meant the one number a league
+   table exists to report - the total - was the tenth column, off the right
+   edge of every phone. Rank and team were pinned; the standings were not.
+
+   So the row stops being ten cells and becomes three blocks: where you
+   are, who you are, what you scored. Everything the columns used to carry
+   moves to a rail underneath, where it can wrap instead of scroll.
+
+   Bands, not cards. They share a hairline, carry no shadow and have no box
+   of their own, because a league table is a classified-results column and
+   not a stack of tiles - and because the only raised surface on this page
+   should stay the one that actually floats, the dialog.                  */
+.ladder { border-top: 1px solid var(--n4); }
+
+/* One template, shared by the header strip and every row, so the labels
+   sit over the numbers they name. */
+.ladder .lhead, .ladder .lrow {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  gap: 0 0.7rem;
+}
+
+/* Mobile loses the table's sortable column headings, which is most of how
+   this page is used. The two that matter come back here as tap targets;
+   the rest stay in the filters sheet's dropdown. */
+.ladder .lhead {
+  padding: 0 0.5rem 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--n4);
+  font-family: var(--mono); font-size: 0.625rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--n6);
+}
+/* The two numbers stack in the row, so their labels stack too - side by
+   side they promised two columns and delivered two lines. */
+.ladder .lh-num {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 0.1rem; line-height: 1.25;
+}
+.ladder .lh-num button {
+  background: none; border: 0; padding: 0; margin: 0; width: auto;
+  min-width: 0; min-height: 0; border-radius: 2px;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  color: inherit; cursor: pointer;
+}
+.ladder .lh-num button:hover:not(:disabled) { background: none; color: var(--blue); }
+.ladder .lh-num button[aria-sort] { color: var(--blue); }
+
+.ladder .lrow {
+  align-items: start; align-content: start;
+  padding: 0.6rem 0.5rem 0.65rem 0.55rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--n4) 45%, transparent);
+  cursor: pointer;
+  transition: background 150ms var(--ease);
+}
+.ladder .lrow:hover, .ladder .lrow:focus-visible { background: var(--n1); }
+
+/* Position facts, stacked: the number, then the movement under it. Both
+   in mono so the column of ranks lines up down the ladder. */
+.ladder .lrank {
+  grid-column: 1; grid-row: 1 / span 2;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+}
+.ladder .lrank .n { font-size: 1.0625rem; line-height: 1.15; color: var(--n7); }
+.ladder .lrank .move { font-size: 0.6875rem; }
+/* Points behind the leader sits with the rank, not with the scores - the
+   same place the table's rankCell puts it, and for the same reason: it is
+   what the position costs, not another thing this team scored. */
+.ladder .lrank .gap { font-size: 0.6875rem; }
+
+.ladder .lwho {
+  grid-column: 2; grid-row: 1 / span 2; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.ladder .lname {
+  font-size: 0.9375rem; font-weight: 500; color: var(--n8);
+  line-height: 1.25; overflow-wrap: anywhere;
+}
+.ladder .lmgr { font-size: 0.8125rem; color: var(--n6); line-height: 1.3; }
+
+/* The two numbers, right-aligned so they read as a column down the ladder
+   rather than as part of each name. The loud one is the score this view is
+   about; the quiet one is the standing it feeds. */
+.ladder .lnum {
+  grid-column: 3; grid-row: 1 / span 2;
+  display: flex; flex-direction: column; align-items: flex-end;
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.ladder .lbig { font-size: 1.1875rem; font-weight: 500; color: var(--orange); }
+.ladder .lbig.none { color: var(--n4); }
+.ladder .lsub { font-size: 0.9375rem; color: var(--n8); margin-top: 0.1rem; }
+
+/* ── The rail ──────────────────────────────────────────────────────────
+   Everything the columns used to carry. Two registers, and the split is
+   the point: a fact is something true of every manager every week - who
+   they captained, what they left on the bench - and reads as annotation.
+   A badge is something that happened to this one: they won the week, they
+   took a hit, they burned a chip. Only the second kind gets a fill.
+
+   That is also what makes the ladder uneven. A quiet week is captain and
+   bench and nothing else; a loud one wraps to a second line. The column
+   is as ragged as the week was.                                         */
+.ladder .lrail {
+  grid-column: 2 / -1; grid-row: 3;
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.3rem 0.6rem; margin-top: 0.45rem;
+}
+.ladder .lrail:empty { display: none; }
+
+.fact {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-family: var(--mono); font-size: 0.6875rem;
+  color: var(--n6); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.fact .ic { color: var(--n6); }
+.fact .v { color: var(--n7); }
+/* The captain's name is a name, not a numeral, so it drops the mono voice
+   and is the one fact allowed to run long and truncate. */
+.fact.f-cap { font-family: var(--sans); min-width: 0; }
+/* Best gameweek had the star, which two items along in the same rail
+   already meant "gameweeks won" - one mark, two claims. There is no
+   football object for a personal best, so it takes a word instead. */
+.fact .lbl { color: var(--n5); }
+.fact.f-cap .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The leader keeps the table's gilt edge - the same convention in both
+   renderings, so the top of the league looks like the top of the league
+   whichever one you are reading. */
+.ladder .lrow.leader {
+  box-shadow: inset 3px 0 0 0 var(--gold);
+  background: color-mix(in oklch, var(--gold) 4%, transparent);
+  padding-top: 0.75rem; padding-bottom: 0.8rem;
+}
+.ladder .lrow.leader .lrank .n { color: var(--gold); font-size: 1.25rem; }
+
+/* Same 18ms step as the table's entrance, on the same .fresh gate. */
+.ladder.fresh .lrow { animation: rowin 320ms var(--ease) both; animation-delay: calc(var(--i) * 18ms); }
+.ladder .lrow.sliding { transition: transform 520ms var(--ease); }
+
+/* The season tallies close every rail, and they share their marks with the
+   week's own items - the star is "won it" and "has won one", the bench is
+   "left 15 behind" and "has done that once". Side by side in one line that
+   reads as four numbers about this week. A rule says where the week stops
+   and the season starts; the marks stay as they were.
+
+   Inside the group the tallies are flex items, so they drop the margin they
+   carry when they sit inline after a team name in the table. */
+.ladder .lhon {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--n4);
+}
+.ladder .lrail .honour { margin-left: 0; }
+
+/* A skeleton is not a row: nothing to open, nothing to hover. */
+.ladder.skeleton .lrow { cursor: default; }
+.ladder.skeleton .lrow:hover { background: none; }
+.ladder .sk { display: block; }
+.ladder .lrank .sk, .ladder .lnum .sk, .ladder .lrail .sk { margin-bottom: 0.25rem; }
+.ladder .lwho .sk { margin-bottom: 0.3rem; }
 
 /* ── Transfer detail ───────────────────────────────────────────────────*/
 /* One transfer per line. A three-column grid rather than a stack of flex
@@ -630,7 +819,7 @@ tbody.skeleton td { border-bottom-color: color-mix(in oklch, var(--n4) 30%, tran
 /* A refresh that has something to keep on screen keeps it, dimmed, rather
    than replacing a full table with a full skeleton - the numbers on screen
    are a minute old, not wrong. */
-.table-scroll.loading { opacity: 0.45; pointer-events: none; transition: opacity 200ms var(--ease); }
+.table-scroll.loading, .ladder.loading { opacity: 0.45; pointer-events: none; transition: opacity 200ms var(--ease); }
 
 /* ── Dialog / sheet ────────────────────────────────────────────────────
    A manager used to open as a row inside the table, which meant fifteen
@@ -839,33 +1028,24 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
   .toggle { width: 100%; }
   .toggle button { flex: 1; }
 
-  /* The table keeps all ten columns and scrolls sideways rather than
-     hiding data; tightening the cells buys a couple of columns per screen. */
-  table { font-size: 0.8125rem; }
-  tbody td, thead th { padding-left: 0.45rem; padding-right: 0.45rem; }
   .mh-top { padding: 0.7rem 0.75rem 0.6rem; }
   .strip { padding: 0.5rem 0.75rem 0.55rem; font-size: 0.6875rem; }
 
-  /* Rank and manager pin to the left edge while the rest of the row scrolls
-     underneath, so a name never disappears off-screen while you're reading
-     its numbers - the single biggest complaint with a wide sideways table. */
-  .table-scroll { position: relative; }
-  thead th:nth-child(1), thead th:nth-child(2),
-  tbody td:nth-child(1), tbody td:nth-child(2) {
-    position: sticky; background: var(--n0); z-index: 1;
-  }
-  thead th:nth-child(1), tbody td:nth-child(1) { left: 0; min-width: 3rem; }
-  thead th:nth-child(2), tbody td:nth-child(2) { left: 3rem; box-shadow: 1px 0 0 var(--n4); }
-  tbody tr.row:hover td:nth-child(1), tbody tr.row:hover td:nth-child(2) { background: var(--n1); }
+  /* The table does not render at this width - render() builds the ladder
+     instead - so nothing here has to make ten columns fit a phone. What is
+     left is the ladder's own breathing room and a type scale with no step
+     below 11px, which is where the old cells and badge labels sat. */
+  .ladder { margin-top: 0.25rem; }
 
-  /* A right-edge shadow signals there is more to scroll to; a gradient into
-     the matching background colour would be invisible here, so this darkens
-     the edge directly instead. It clears once scrolled to the end. */
-  .table-scroll.has-overflow {
-    box-shadow: inset -1.75rem 0 1rem -1rem rgba(0, 0, 0, 0.6);
-    transition: box-shadow 150ms var(--ease);
-  }
-  .table-scroll.has-overflow.at-end { box-shadow: none; }
+  /* The eyebrow over the ladder only ever repeated what the masthead two
+     inches above it already says, and cost a line of a small screen. The
+     provisional note and the legend's headings keep theirs. */
+  .panel-head { display: none; }
+
+  /* The legend is a reference, not part of the reading, so it collapses to
+     one column and gives its marks room rather than squeezing to two. */
+  .legend { grid-template-columns: 1fr; gap: 0 1rem; }
+  .lg-item { padding: 0.4rem 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -875,6 +1055,56 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
+
+<!-- The icon set. Every mark is an object from the game rather than a UI
+     metaphor, because this page has one subject and the reader already
+     knows its vocabulary: the armband a captain wears, the board a fourth
+     official holds up for a substitution, the card a referee shows for an
+     offence, the bench, the clock. Drawn once and stroked in currentColor,
+     so each one takes the hue of the badge or fact it sits in.
+
+     Deliberately five. Every icon replaces something the phone layout was
+     carrying badly - a bare name in a column with no heading, a numeral
+     with nothing to say what it counted - and the moment one is added that
+     merely decorates a label already doing its job, the set stops helping
+     you read the rail and starts being a thing to look at. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <!-- Captain's armband: the band, and the stripe around it. -->
+    <symbol id="ic-arm" viewBox="0 0 24 24">
+      <rect x="3" y="7.5" width="18" height="9" rx="2.5"/>
+      <path d="M9.5 7.5v9"/>
+    </symbol>
+    <!-- The substitution board: one player off, one on. -->
+    <symbol id="ic-sub" viewBox="0 0 24 24">
+      <path d="M3 9h15m-3.5-3.5L18 9l-3.5 3.5"/>
+      <path d="M21 15H6m3.5-3.5L6 15l3.5 3.5"/>
+    </symbol>
+    <!-- The card the referee shows. A hit is this league's only booking. -->
+    <symbol id="ic-card" viewBox="0 0 24 24">
+      <rect x="7" y="3" width="11" height="18" rx="2" transform="rotate(11 12 12)"/>
+    </symbol>
+    <!-- The bench, side on: the seat and its legs. It was drawn with a
+         back rail too, which at 11px collapsed into a second plank and made
+         the whole thing read as an equals sign. One plank, two long legs. -->
+    <symbol id="ic-bench" viewBox="0 0 24 24">
+      <path d="M2.5 9.5h19M6 9.5v8M18 9.5v8"/>
+    </symbol>
+    <!-- Still to play. -->
+    <symbol id="ic-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5"/>
+      <path d="M12 7.5V12l3 1.8"/>
+    </symbol>
+    <!-- The two honours, solid: an outlined star at 11px is a smudge. -->
+    <symbol id="ic-star" viewBox="0 0 24 24">
+      <path class="ic-solid" d="M12 2.6l2.9 6.2 6.6.9-4.8 4.7 1.2 6.7-5.9-3.2-5.9 3.2 1.2-6.7L2.5 9.7l6.6-.9z"/>
+    </symbol>
+    <symbol id="ic-diamond" viewBox="0 0 24 24">
+      <path class="ic-solid" d="M12 2.2l6.4 9.8-6.4 9.8-6.4-9.8z"/>
+    </symbol>
+  </defs>
+</svg>
+
 <div class="wrap">
 
   <header class="masthead">
@@ -1244,6 +1474,23 @@ function skeletonTable(view) {
     <tbody class="skeleton">${body}</tbody></table></div>`;
 }
 
+// Same job at the ladder's geometry: the wait should be the shape of what
+// is coming, so nothing jumps when the rows land. The rails are staggered
+// widths for the same reason the real ones are ragged - a phone screen of
+// identical bars reads as a loading graphic rather than as a table arriving.
+function skeletonLadder(view) {
+  const rows = Array.from({ length: SK_ROWS }, (_, i) => `
+    <div class="lrow">
+      <span class="lrank">${skBar(0.9, i)}</span>
+      <span class="lwho">${skBar(6.5 * skJitter(i, 1), i)}${skBar(4.2 * skJitter(i, 2), i)}</span>
+      <span class="lnum">${skBar(1.6, i)}${skBar(2.1, i)}</span>
+      <span class="lrail">${skBar(9 * skJitter(i, 3), i)}</span>
+    </div>`).join("");
+  return `<div class="ladder skeleton">${ladderHead(view)}${rows}</div>`;
+}
+
+const skeletonPanel = (view) => (isMobile() ? skeletonLadder : skeletonTable)(view);
+
 // The squad behind an option tab is one request, so its wait gets the same
 // treatment at the shape of the thing being fetched.
 function skeletonSquad() {
@@ -1266,6 +1513,12 @@ function seasonLabel(iso) {
 
 // ── formatting ────────────────────────────────────────────────────────
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// One reference to a <symbol> in the sprite at the top of the body. Always
+// aria-hidden: every icon on this page sits beside a word or a numeral that
+// already says what it is, so an accessible name here would only make a
+// screen reader read the same thing twice.
+const icon = (name) => `<svg class="ic" aria-hidden="true"><use href="#ic-${name}"/></svg>`;
 
 function movement(rank, lastRank) {
   if (!lastRank || !rank || lastRank === rank) return '<span class="move flat" aria-hidden="true">·</span>';
@@ -1304,7 +1557,7 @@ const gwCols = [
   { key: "bench", label: "Bench", num: true, cell: (r) => r.played
       ? `<span class="num val">${r.bench}</span>${r.benchDerived ? '<span class="derived" data-tip="Bench Boost week: the API reports 0, so this is recomputed from picks + live points">*</span>' : ""}`
       : '<span class="faint">—</span>' },
-  { key: "chip", label: "Chip", cell: (r) => r.chip ? `<span class="chip">${esc(r.chip)}</span>` : '<span class="faint">·</span>' },
+  { key: "chip", label: "Chip", cell: (r) => r.chip ? chipBadge(r.chip) : '<span class="faint">·</span>' },
   { key: "transfers", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => r.transfers ? `<span class="num dim">${r.transfers}</span>` : '<span class="faint">·</span>' },
   { key: "captain", label: "Captain", cell: (r) => r.captain ? `<span class="dim">${esc(r.captain)}</span>` : '<span class="faint">—</span>' },
   { key: "toPlay", label: "To play", num: true, cell: (r) => r.played
@@ -1319,17 +1572,17 @@ const seasonCols = [
   { key: "manager", label: "Team", cell: (r) => `<span class="who"><span class="name">${esc(r.entry)}</span><span class="team">${esc(r.manager)}</span></span>` },
   { key: "total", label: "Total", num: true, cell: (r) => `<span class="num gwpts">${r.total}</span>` },
   { key: "gwWins", label: "Wins", sortLabel: "Gameweek wins", num: true, cell: (r) =>
-      seasonTally(r.gwWins, "win", "★", r.gwWinWeeks && r.gwWinWeeks.map((w) => "GW" + w), "Gameweek wins:") },
+      seasonTally(r.gwWins, "win", "star", r.gwWinWeeks && r.gwWinWeeks.map((w) => "GW" + w), "Gameweek wins:") },
   { key: "monthWins", label: "Months", sortLabel: "Month wins", num: true, cell: (r) =>
-      seasonTally(r.monthWins, "win", "◆", r.monthWinNames, "Months won:") },
+      seasonTally(r.monthWins, "win", "diamond", r.monthWinNames, "Months won:") },
   { key: "benchTotal", label: "Benched", num: true, cell: (r, ctx) => `<span class="bench">${meter(r.benchTotal, ctx.maxBench)}<span class="num val">${r.benchTotal}</span></span>` },
   { key: "hitsTotal", label: "Hits", num: true, cell: (r) => r.hitsTotal ? `<span class="num hit">−${r.hitsTotal}</span>` : '<span class="faint">·</span>' },
   { key: "transfersTotal", label: "TF", sortLabel: "Transfers", num: true, cell: (r) => `<span class="num dim">${r.transfersTotal}</span>` },
   { key: "bestGwPoints", label: "Best GW", num: true, cell: (r) => r.bestGw ? `<span class="num">${r.bestGwPoints}</span> <span class="dim">GW${r.bestGw}</span>` : '<span class="faint">—</span>' },
   { key: "benchWins", label: "Bench wins", sortLabel: "Bench wins", num: true, cell: (r) =>
-      seasonTally(r.benchWins, "benchwin", "▬", r.benchWinWeeks && r.benchWinWeeks.map((w) => "GW" + w), "Bench wins:") },
+      seasonTally(r.benchWins, "benchwin", "bench", r.benchWinWeeks && r.benchWinWeeks.map((w) => "GW" + w), "Bench wins:") },
   { key: "chips", label: "Chips used", nosort: true, cell: (r) => (r.chipsUsed && r.chipsUsed.length)
-      ? r.chipsUsed.map((c) => `<span class="chip">${esc(chipLabel(c.name))}<span class="dim"> ${c.event}</span></span>`).join(" ")
+      ? r.chipsUsed.map((c) => chipBadge(chipLabel(c.name), c.event)).join(" ")
       : '<span class="faint">·</span>' },
 ];
 
@@ -1367,8 +1620,8 @@ function fillSortOptions() {
 // Ties are shared, so both badges can appear on more than one row in a week.
 function weekBadges(r) {
   const b = [];
-  if (r.wonGw) b.push('<span class="badge win" data-tip="Highest score in this gameweek">★ WIN</span>');
-  if (r.wonBench) b.push('<span class="badge benchwin" data-tip="Most points left on the bench this gameweek">▬ BENCH</span>');
+  if (r.wonGw) b.push(MARK.win);
+  if (r.wonBench) b.push(MARK.benchwin);
   return (b.length ? `<span class="badges">${b.join("")}</span>` : "") + honours(r);
 }
 
@@ -1377,32 +1630,44 @@ function weekBadges(r) {
 // one, and a row of them sits badly next to the ★ WIN badge a current
 // winner already carries.
 function honours(r) {
-  return tally("gw", "★", r.gwWins, r.gwWinWeeks, "gameweek win")
-       + tally("bench", "▬", r.benchWins, r.benchWinWeeks, "bench win");
+  return tally("gw", "star", r.gwWins, r.gwWinWeeks, "gameweek win")
+       + tally("bench", "bench", r.benchWins, r.benchWinWeeks, "bench win");
 }
 
-function tally(kind, glyph, n, weeks, noun) {
+function tally(kind, ic, n, weeks, noun) {
   if (!n) return "";
   const list = (weeks || []).map((w) => "GW" + w).join(", ");
   const label = `${n} ${noun}${n === 1 ? "" : "s"} this season${list ? ` — ${list}` : ""}`;
-  return `<span class="honour honour-${kind}" data-tip="${esc(label)}">${glyph}<span class="s">${n}</span></span>`;
+  return `<span class="honour honour-${kind}" data-tip="${esc(label)}">${icon(ic)}<span class="s">${n}</span></span>`;
 }
 
-function seasonTally(n, cls, glyph, labels, verb) {
+function seasonTally(n, cls, ic, labels, verb) {
   if (!n) return '<span class="tally"><span class="n zero">·</span></span>';
   const t = `${verb} ${(labels || []).join(", ")}`;
-  return `<span class="tally" data-tip="${esc(t)}"><span class="badge ${cls}">${glyph}</span><span class="n">${n}</span></span>`;
+  return `<span class="tally" data-tip="${esc(t)}"><span class="badge ${cls}">${icon(ic)}</span><span class="n">${n}</span></span>`;
 }
 
 function chipLabel(n) {
   return { wildcard: "WC", freehit: "FH", bboost: "BB", "3xc": "TC" }[n] || n;
 }
 
+// The two-letter code is what identifies a chip - four chip hues would not
+// survive the CVD check the palette note describes - so the badge carries
+// the letters and spells them out in the tooltip.
+const CHIP_NAME = { WC: "Wildcard", FH: "Free Hit", BB: "Bench Boost", TC: "Triple Captain" };
+
+function chipBadge(code, event) {
+  const name = CHIP_NAME[code] || code;
+  const tip = event ? `${name} played in GW${event}` : `${name} played`;
+  return `<span class="badge chip" data-tip="${esc(tip)}">${esc(code)}${
+    event ? `<span class="ev">${event}</span>` : ""}</span>`;
+}
+
 // Where every row sits right now, keyed by entry id. Captured before the
 // table is rewritten so flipRows() can work out what moved.
 function rowPositions() {
   const map = new Map();
-  $("panel").querySelectorAll("tr.row[data-entry]").forEach((tr) => {
+  $("panel").querySelectorAll("[data-entry]").forEach((tr) => {
     map.set(tr.dataset.entry, tr.getBoundingClientRect().top);
   });
   return map;
@@ -1417,7 +1682,7 @@ function rowPositions() {
 function flipRows(before) {
   if (!before.size || prefersReducedMotion()) return;
   const moved = [];
-  $("panel").querySelectorAll("tr.row[data-entry]").forEach((tr) => {
+  $("panel").querySelectorAll("[data-entry]").forEach((tr) => {
     const was = before.get(tr.dataset.entry);
     if (was == null) return;
     const delta = was - tr.getBoundingClientRect().top;
@@ -1441,6 +1706,145 @@ function flipRows(before) {
 
 function prefersReducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+
+// ── ladder ────────────────────────────────────────────────────────────
+// The phone rendering of the same rows the table renders. It exists
+// because the table cannot honestly fit: ten columns on a 390px screen put
+// Total - the number a league table is for - off the right edge behind five
+// columns of sideways scroll.
+//
+// The values come from the same row objects and the same helpers as the
+// table's cells, so the two renderings cannot disagree about a number, a
+// badge or a hue. What differs is only the shape: three blocks and a rail,
+// instead of ten cells.
+
+// A fact is true of every manager every week - who they captained, what
+// they left on the bench. A badge is something that happened to this one -
+// they won it, they took a hit, they played a chip. Only badges get a fill,
+// which is what lets the rail be read at a glance rather than word by word.
+function fact(ic, value, tip, cls) {
+  return `<span class="fact${cls ? " " + cls : ""}"${tip ? ` data-tip="${esc(tip)}"` : ""}>${
+    icon(ic)}<span class="v">${value}</span></span>`;
+}
+
+// The season's tallies, fenced off from the week's items beside them.
+function honourGroup(r) {
+  const h = honours(r);
+  return h ? `<span class="lhon">${h}</span>` : "";
+}
+
+// The same annotation led by a word instead of a mark, for the one fact
+// with no object behind it.
+function labelled(label, value, tip) {
+  return `<span class="fact" data-tip="${esc(tip)}"><span class="lbl">${label}</span><span class="v">${value}</span></span>`;
+}
+
+function hitBadge(n, tip) {
+  return `<span class="badge hitb" data-tip="${esc(tip)}">${icon("card")}−${n}</span>`;
+}
+
+function gwRail(r) {
+  const out = [];
+  if (r.wonGw) out.push(MARK.win);
+  if (r.wonBench) out.push(MARK.benchwin);
+  if (r.chip) out.push(chipBadge(r.chip));
+  if (r.hit) out.push(hitBadge(r.hit, `${r.grossPoints} scored − ${r.hit} for transfers = ${r.netPoints}`));
+  if (r.played) {
+    if (r.captain) out.push(fact("arm", esc(r.captain), `Captained ${r.captain}`, "f-cap"));
+    out.push(fact("bench",
+      `${r.bench}${r.benchDerived ? '<span class="derived">*</span>' : ""}`,
+      r.benchDerived
+        ? `${r.bench} left on the bench — recomputed, since Bench Boost weeks report 0`
+        : `${r.bench} points left on the bench`));
+    if (r.transfers) out.push(fact("sub", r.transfers, `${r.transfers} transfer${r.transfers === 1 ? "" : "s"}`));
+    // Only while there are some. A row of zeroes down the ladder after
+    // Monday would be a column of nothing, and the point of the rail is
+    // that it carries what is still true.
+    if (r.toPlay) out.push(fact("clock", r.toPlay, `${r.toPlay} still to play · ${r.playingNow} playing now`));
+  }
+  return out.join("") + honourGroup(r);
+}
+
+function seasonRail(r) {
+  const out = [];
+  if (r.hitsTotal) out.push(hitBadge(r.hitsTotal, `${r.hitsTotal} points taken off for transfers this season`));
+  (r.chipsUsed || []).forEach((c) => out.push(chipBadge(chipLabel(c.name), c.event)));
+  if (r.bestGw) out.push(labelled("Best", r.bestGwPoints, `Best gameweek: ${r.bestGwPoints} in GW${r.bestGw}`));
+  out.push(fact("bench", r.benchTotal, `${r.benchTotal} points left on the bench all season`));
+  // A zero here is not a fact about the season, it is an empty column - and
+  // twenty-five of them down a phone screen is what the rail exists to avoid.
+  if (r.transfersTotal) out.push(fact("sub", r.transfersTotal, `${r.transfersTotal} transfers this season`));
+  return out.join("") + honourGroup(r);
+}
+
+// One row, three blocks and a rail. `big` is whatever number this view is
+// about, `sub` the standing it feeds, `gap` the margin to the leader.
+function ladderRow(o, i) {
+  return `<div class="lrow${o.leader ? " leader" : ""}" style="--i:${Math.min(i, 30)}"
+       data-entry="${o.entryId}" tabindex="0" role="button" aria-haspopup="dialog">
+    <span class="lrank"><span class="n">${o.rank}</span>${o.move || ""}${
+      o.gap != null ? `<span class="gap">−${o.gap}</span>` : ""}</span>
+    <span class="lwho"><span class="lname">${esc(o.entry)}</span><span class="lmgr">${esc(o.manager)}</span></span>
+    <span class="lnum">
+      <span class="lbig${o.big == null ? " none" : ""}">${o.big == null ? "—" : o.big}</span>
+      ${o.sub != null ? `<span class="lsub">${o.sub}</span>` : ""}
+    </span>
+    <span class="lrail">${o.rail}</span>
+  </div>`;
+}
+
+// Mobile loses the table's sortable column headings, which is most of how
+// this page gets used. The two numbers on screen bring theirs back as tap
+// targets; everything else stays in the filters sheet's dropdown.
+function ladderHead(view) {
+  const btn = (key, label) => {
+    const on = state.sort.key === key;
+    const dir = state.sort.dir === 1 ? "↑" : "↓";
+    return `<button type="button" data-key="${key}"${
+      on ? ` aria-sort="${state.sort.dir === 1 ? "ascending" : "descending"}"` : ""
+    }>${label}${on ? ` <span class="caret">${dir}</span>` : ""}</button>`;
+  };
+  const nums = view === "gw" ? btn("netPoints", "GW") + btn("total", "Total")
+    : view === "season" ? btn("total", "Total")
+    : "<span>Points</span>";
+  return `<div class="lhead"><span>#</span><span>Team</span><span class="lh-num">${nums}</span></div>`;
+}
+
+function ladder(view, rows, ctx, fresh) {
+  const body = rows.map((r, i) => {
+    if (view === "season") {
+      return ladderRow({
+        entryId: r.entryId, entry: r.entry, manager: r.manager,
+        rank: r.leagueRank, leader: r.leagueRank === 1,
+        big: r.total, sub: null,
+        gap: r.leagueRank === 1 || ctx.leaderTotal == null ? null : ctx.leaderTotal - r.total,
+        rail: seasonRail(r),
+      }, i);
+    }
+    return ladderRow({
+      entryId: r.entryId, entry: r.entry, manager: r.manager,
+      rank: r.leagueRank, leader: r.leagueRank === 1,
+      move: movement(r.leagueRank, r.lastRank),
+      big: r.played
+        ? `<span class="${state.flashed && state.flashed.has(r.entryId) ? "flash" : ""}">${r.netPoints}</span>`
+        : null,
+      sub: r.total,
+      gap: r.leagueRank === 1 || ctx.leaderTotal == null ? null : ctx.leaderTotal - r.total,
+      rail: gwRail(r),
+    }, i);
+  }).join("");
+
+  return `<div class="ladder${fresh ? " fresh" : ""}">${ladderHead(view)}${body}</div>`;
+}
+
+// The head's two buttons are the mobile equivalent of a column heading, so
+// they get the same behaviour: tap to sort by it, tap again to reverse.
+function wireLadderHead() {
+  $("panel").querySelectorAll(".lh-num button[data-key]").forEach((b) => {
+    b.addEventListener("click", () => setSort(b.dataset.key));
+  });
 }
 
 // ── render ────────────────────────────────────────────────────────────
@@ -1476,7 +1880,9 @@ function render(fresh) {
     return dir * ((av ?? -1) - (bv ?? -1));
   });
 
-  const head = cols.map((c) => {
+  const phone = isMobile();
+
+  const head = phone ? "" : cols.map((c) => {
     if (c.nosort) return `<th scope="col">${esc(c.label)}</th>`;
     const active = c.key === key;
     const caret = active ? `<span class="caret">${dir === 1 ? "↑" : "↓"}</span>` : "";
@@ -1484,7 +1890,7 @@ function render(fresh) {
     return `<th scope="col" class="sortable" data-key="${c.key}" tabindex="0" role="button"${sortAttr}>${esc(c.label)} ${caret}</th>`;
   }).join("");
 
-  const body = rows.map((r, i) => {
+  const body = phone ? "" : rows.map((r, i) => {
     const cells = cols.map((c) => {
       const t = c.title ? ` data-tip="${esc(c.title(r))}"` : "";
       return `<td${t}>${c.cell(r, ctx)}</td>`;
@@ -1492,6 +1898,12 @@ function render(fresh) {
     const rowClass = `row${r.leagueRank === 1 ? " leader" : ""}`;
     return `<tr class="${rowClass}" style="--i:${Math.min(i, 30)}" data-entry="${r.entryId}" tabindex="0" role="button" aria-haspopup="dialog">${cells}</tr>`;
   }).join("");
+
+  // Same rows, same helpers, two shapes. See the ladder block above for why
+  // the table is not one of the two below 640px.
+  const list = phone
+    ? ladder(state.view, rows, ctx, fresh)
+    : `<div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody${fresh ? ' class="fresh"' : ""}>${body}</tbody></table></div>`;
 
   $("sort").value = key;
   $("sortdir").textContent = dir === 1 ? "↑" : "↓";
@@ -1501,9 +1913,9 @@ function render(fresh) {
 
   const before = rowPositions();
   $("panel").innerHTML = `
-    <h2 class="eyebrow">${label}</h2>
+    <h2 class="eyebrow panel-head">${label}</h2>
     ${rep.provisional && !season ? '<p class="provisional">This gameweek is not finalised — bonus, gameweek ranks and bench points can still move.</p>' : ""}
-    <div class="table-scroll"><table><thead><tr>${head}</tr></thead><tbody${fresh ? ' class="fresh"' : ""}>${body}</tbody></table></div>
+    ${list}
     ${notes(state.view)}`;
   flipRows(before);
 
@@ -1513,13 +1925,14 @@ function render(fresh) {
     th.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
   });
 
+  wireLadderHead();
   wireRows();
   updateScrollHint();
 }
 
 // Every row in every view is the same thing: the way into one manager.
 function wireRows() {
-  $("panel").querySelectorAll("tr.row[data-entry]").forEach((tr) => {
+  $("panel").querySelectorAll("[data-entry]").forEach((tr) => {
     const act = () => openManager(Number(tr.dataset.entry));
     tr.addEventListener("click", act);
     tr.addEventListener("keydown", (e) => {
@@ -1548,19 +1961,32 @@ function renderMonthly(rep) {
   const ph = currentPhase();
 
   const leaderPoints = ph.standings.length ? ph.standings[0].points : 0;
-  const rows = ph.standings.map((r, i) => `
+  const monthWin = `<span class="badge win" data-tip="Won this month">${icon("star")}WIN</span>`;
+
+  const list = isMobile()
+    ? `<div class="ladder">${ladderHead("monthly")}${ph.standings.map((r, i) => ladderRow({
+        entryId: r.entryId, entry: r.entry, manager: r.manager,
+        rank: i + 1, leader: i === 0,
+        big: r.points, sub: null,
+        gap: i === 0 ? null : leaderPoints - r.points,
+        rail: r.won ? monthWin : "",
+      }, i)).join("")}</div>`
+    : `<div class="table-scroll"><table><thead><tr>
+      <th scope="col">#</th><th scope="col">Team</th><th scope="col">Points</th>
+    </tr></thead><tbody>${ph.standings.map((r, i) => `
     <tr class="row${i === 0 ? " leader" : ""}" style="--i:${Math.min(i, 30)}"
         data-entry="${r.entryId}" tabindex="0" role="button" aria-haspopup="dialog">
       <td><span class="rankcell"><span class="rankline"><span class="rank">${i + 1}</span></span>${i === 0 ? "" : `<span class="gap">−${leaderPoints - r.points}</span>`}</span></td>
-      <td><span class="who"><span class="name">${esc(r.entry)}${r.won ? '<span class="badges"><span class="badge win" data-tip="Won this month">★ WIN</span></span>' : ""}</span><span class="team">${esc(r.manager)}</span></span></td>
+      <td><span class="who"><span class="name">${esc(r.entry)}${r.won ? `<span class="badges">${monthWin}</span>` : ""}</span><span class="team">${esc(r.manager)}</span></span></td>
       <td><span class="num gwpts">${r.points}</span></td>
-    </tr>`).join("");
+    </tr>`).join("")}</tbody></table></div>`;
 
+  // The month's own eyebrow stays on a phone: unlike "Gameweek 3", which the
+  // masthead already says two inches above it, this one names which month
+  // and whether it is settled - nothing else on screen carries that.
   $("panel").innerHTML = `
     <h2 class="eyebrow">${esc(ph.name)} <span class="phase-status">${ph.complete ? "final" : "provisional"}</span> <span class="dim">GW${ph.startEvent}–${ph.stopEvent}</span></h2>
-    <div class="table-scroll"><table><thead><tr>
-      <th scope="col">#</th><th scope="col">Team</th><th scope="col">Points</th>
-    </tr></thead><tbody>${rows}</tbody></table></div>
+    ${list}
     ${notes("monthly")}`;
   wireRows();
   updateScrollHint();
@@ -1844,14 +2270,20 @@ function toPlayView(d, fresh) {
 // Marks shared by more than one view, written once so the legend and the
 // table can never drift apart on a colour or a glyph.
 const MARK = {
-  win: '<span class="badge win">★ WIN</span>',
-  benchwin: '<span class="badge benchwin">▬ BENCH</span>',
-  gwTally: '<span class="honour honour-gw">★<span class="s">3</span></span>',
-  benchTally: '<span class="honour honour-bench">▬<span class="s">2</span></span>',
+  win: `<span class="badge win" data-tip="Highest score in this gameweek">${icon("star")}WIN</span>`,
+  benchwin: `<span class="badge benchwin" data-tip="Most points left on the bench this gameweek">${icon("bench")}BENCH</span>`,
+  gwTally: `<span class="honour honour-gw">${icon("star")}<span class="s">3</span></span>`,
+  monthTally: `<span class="honour honour-gw">${icon("diamond")}<span class="s">1</span></span>`,
+  benchTally: `<span class="honour honour-bench">${icon("bench")}<span class="s">2</span></span>`,
   leader: '<span class="lg-edge"></span><span class="rank" style="color:var(--gold)">1</span>',
   move: '<span class="move up">↑3</span><span class="move down">↓2</span>',
   gap: '<span class="gap">−12</span>',
-  chip: '<span class="chip">BB</span>',
+  chip: `<span class="badge chip">BB</span>`,
+  hit: `<span class="badge hitb">${icon("card")}−4</span>`,
+  cap: `<span class="fact f-cap">${icon("arm")}<span class="v">Haaland</span></span>`,
+  bench: `<span class="fact">${icon("bench")}<span class="v">9</span></span>`,
+  tf: `<span class="fact">${icon("sub")}<span class="v">2</span></span>`,
+  toplay: `<span class="fact">${icon("clock")}<span class="v">3</span></span>`,
   derived: '<span class="num val">7</span><span class="derived">*</span>',
   live: '<span class="fx-dot live"></span><span class="fx-dot upcoming"></span>',
 };
@@ -1873,8 +2305,10 @@ function legendItems(view) {
   if (view === "season") {
     return [
       gwTally,
-      [`<span class="honour honour-gw">◆<span class="s">1</span></span>`, "Months won", "How many of FPL's calendar-month phases this team has topped."],
+      [MARK.monthTally, "Months won", "How many of FPL's calendar-month phases this team has topped."],
       benchTally, leader, chip,
+      [MARK.hit, "Points taken off", "Transfers beyond the free one cost 4 points each. The total is already deducted from every score here."],
+      [MARK.tf, "Transfers made", "How many players this team swapped."],
     ];
   }
   return [
@@ -1883,6 +2317,11 @@ function legendItems(view) {
     gwTally, benchTally, leader,
     [MARK.move, "Rank movement", "Places gained or lost since the previous gameweek."],
     gap, chip,
+    [MARK.hit, "Points taken off", "Transfers beyond the free one cost 4 points each. The score beside it already has the deduction taken out."],
+    [MARK.cap, "Captain", "Whoever this team doubled this gameweek."],
+    [MARK.bench, "Points benched", "What this team's substitutes scored without being played."],
+    [MARK.tf, "Transfers made", "How many players this team swapped."],
+    [MARK.toplay, "Still to play", "Players in the starting XI whose match has not kicked off. It only appears while some are left."],
     [MARK.derived, "Recomputed bench", "Bench Boost reports zero points on the bench, so this figure is rebuilt from the picks and the live scores."],
     [MARK.live, "Playing / to play", "In an opened team, a pulsing dot is a player whose match is under way and a flat one is a match still to kick off."],
   ];
@@ -1901,7 +2340,10 @@ function notes(view) {
        ${view === "season"
          ? "<span><b>Benched</b> reads 0 for any Bench Boost week, which is what the API reports for them.</span>"
          : "<span><b>To play</b> counts the starting XI, or all 15 during a Bench Boost. Hover it for the full breakdown.</span>"}
-       <span>Select a row for its transfers, team, captain and players left to play. Column headings sort.</span>`;
+       <span>Select a row for its transfers, team, captain and players left to play. ${
+         isMobile()
+           ? "Tap GW or Total to sort by it; the rest of the sorts are under Filters."
+           : "Column headings sort."}</span>`;
 
   return `<h2 class="eyebrow">legend</h2>
     <div class="legend">${items}</div>
@@ -1923,9 +2365,9 @@ async function load(push) {
   // dimmed - while the new ones are fetched. The skeleton is for when there
   // is nothing worth keeping: a first load, or a different league.
   const keep = !!(state.report && state.report.league.id === league);
-  const scroller = keep && $("panel").querySelector(".table-scroll");
+  const scroller = keep && $("panel").querySelector(".table-scroll, .ladder:not(.skeleton)");
   if (scroller) scroller.classList.add("loading");
-  else $("panel").innerHTML = skeletonTable(state.view);
+  else $("panel").innerHTML = skeletonPanel(state.view);
 
   const qs = new URLSearchParams({ league, gw, max });
   try {
@@ -2040,6 +2482,9 @@ $("filters-toggle").addEventListener("click", () => {
 mqMobile.addEventListener("change", () => {
   setFiltersOpen(false);
   placeControls();
+  // Crossing the breakpoint swaps table for ladder, and the two are built
+  // rather than restyled - so the panel has to be rebuilt, not just reflowed.
+  if (state.report) render();
 });
 
 // ── table scroll hint ────────────────────────────────────────────────

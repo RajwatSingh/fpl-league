@@ -85,6 +85,36 @@ The portfolio renders nothing when the FPL API is down, on the grounds that no
 reader of a portfolio needs to know. This inverts that: someone here is trying
 to get an answer, so a failure shows the actual upstream reason.
 
+### Two shapes, one set of rows
+
+Above 640px the report is the ten-column sortable table. Below it, the same
+rows render as a **ladder** — rank, identity, the two numbers, and a rail
+underneath carrying everything the columns used to. The table cannot honestly
+fit a phone: ten columns on a 390px screen put `TOTAL`, the one number a league
+table exists to report, tenth from the left and five columns into a sideways
+scroll.
+
+Both shapes are built from the same row objects and the same helpers, so they
+cannot disagree about a value, a badge or a hue. Only the arrangement differs.
+
+The rail has two registers, and the split carries meaning. A **fact** — captain,
+bench, transfers, players still to play — is true of every manager every week and
+reads as a plain icon and a value. A **badge** — gameweek win, most benched,
+chip, hit — is something that happened to this one, and gets a fill. So a row is
+as tall as its week was eventful: a quiet manager is two lines, and the one who
+won the week on a −12 hit with a Triple Captain runs to four.
+
+Icons are objects from the game rather than UI metaphors — the armband, the
+substitution board, the referee's card, the bench, the clock — because the page
+has one subject and its readers already know that vocabulary. There are five,
+and the rule for adding a sixth is that it must replace something the layout is
+currently carrying badly. Every badge still keeps its word or its number: the
+palette note above is why nothing here is identified by hue alone.
+
+Mobile loses the table's sortable column headings, which is most of how the page
+gets used, so the ladder's two numbers carry theirs as tap targets. The rest of
+the sorts stay in the filters sheet.
+
 ## Layout
 
     fpl/client.go     HTTP client: browser UA, status checks, retry/backoff on 429+5xx
