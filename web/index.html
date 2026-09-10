@@ -873,6 +873,33 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
   vertical-align: middle; text-align: right; white-space: nowrap;
 }
 .ticker td.t-who { text-align: left; width: 100%; }
+/* ── Column rules ──────────────────────────────────────────────────────
+   Seventeen columns is more than the eye can track across on row spacing
+   alone, so the ticker gets verticals. They sit a step above the row
+   border rather than matching it, which inverts the usual hierarchy on
+   purpose: rows here are 37px tall and separate themselves by spacing
+   long before their hairline is doing any work, while a column is four
+   characters wide and has nothing else to mark its edge. At the row
+   border's own weight the verticals were invisible - present in the
+   stylesheet, absent on the screen.
+
+   Not between the fixture columns. Those cells are already discrete
+   blocks of colour with their own edges, and the gutter between them is
+   1.6px - a rule there would not divide the run so much as fill it, and
+   the run is meant to read as one band rather than as ten things to look
+   at. The boundary between the halves does get a rule, one step up: it is
+   the only division in the row that means anything, which is who this is
+   on the left and what is coming on the right.
+
+   Written flat rather than as :not() chains so the later, more specific
+   rules can actually win - a `:not(.t-gw):not(:last-child)` pair carries
+   three classes' worth of specificity and quietly outranks the overrides
+   meant to follow it.                                                    */
+.ticker th, .ticker td { border-right: 1px solid var(--n3); }
+.ticker th.t-gw, .ticker td.fx { border-right: 0; }
+.ticker th.t-edge, .ticker td.t-edge { border-right: 1px solid var(--n4); }
+.ticker th:last-child, .ticker td:last-child { border-right: 0; }
+
 .ticker tbody tr { cursor: pointer; transition: background 140ms var(--ease); }
 .ticker tbody tr:hover { background: var(--n1); }
 .ticker tbody tr:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
@@ -3293,7 +3320,7 @@ function playerTable(rows) {
     <th scope="col">xGI</th>
     <th scope="col" data-tip="Defensive contributions this season - tackles, interceptions, blocks and recoveries, the stat that scores points for defenders and midfielders">DefCon</th>
     <th scope="col">Own</th>
-    <th scope="col">Run</th>
+    <th scope="col" class="t-edge">Run</th>
     ${events.map((e) => `<th scope="col" class="t-gw">GW${e}</th>`).join("")}
   </tr>`;
 
@@ -3306,7 +3333,7 @@ function playerTable(rows) {
       <td><span class="num dim">${(p.xg + p.xa).toFixed(1)}</span></td>
       <td><span class="num dim">${p.defCon}</span></td>
       <td><span class="num dim">${p.selected.toFixed(1)}%</span></td>
-      <td>${avgCell(p)}</td>
+      <td class="t-edge">${avgCell(p)}</td>
       ${events.map((e) => `<td class="fx">${fxCell(byEvent.get(e), p.group)}</td>`).join("")}
     </tr>`;
   }).join("");
@@ -3571,7 +3598,8 @@ function renderPlayerDialog(p) {
     [`£${p.cost.toFixed(1)}`, "Price"], [`${p.selected.toFixed(1)}%`, "Owned"],
     [p.minutes, "Minutes"], [p.starts, "Starts"], [p.goals, "Goals"],
     [p.assists, "Assists"], [p.xg.toFixed(2), "xG"], [p.xa.toFixed(2), "xA"],
-    [p.cs, "Clean sheets"], [p.defCon, "Def. cont."], [p.bonus, "Bonus"],
+    [p.cs, "Clean sheets"], [p.defCon, "Def. cont."],
+    [p.defCon90.toFixed(1), "Def. cont./90"], [p.bonus, "Bonus"],
   ].map(([n, l]) => `<div class="pstat"><div class="n">${esc(String(n))}</div><div class="l">${esc(l)}</div></div>`).join("");
 
   const news = p.news
@@ -3769,7 +3797,7 @@ function clubTable(rows) {
     <th scope="col" data-tip="Expected goals created per 90 minutes, and where that ranks">Attack</th>
     <th scope="col" data-tip="Expected goals conceded per 90 minutes, and where that ranks. Lower is better, so 1st is the tightest defence">Defence</th>
     <th scope="col" data-tip="Share of this season's minutes belonging to players who are currently unavailable">Out</th>
-    <th scope="col" data-tip="Mean difficulty of the run below, through the selected lens">Run</th>
+    <th scope="col" class="t-edge" data-tip="Mean difficulty of the run below, through the selected lens">Run</th>
     ${events.map((e) => `<th scope="col" class="t-gw">GW${e}</th>`).join("")}
   </tr>`;
 
@@ -3786,7 +3814,7 @@ function clubTable(rows) {
       <td>${rate(t.xgcPer90.toFixed(2), t.defenceRank, total, "",
         `${t.xgcPer90.toFixed(2)} xGC per 90 · ${t.gcPer90.toFixed(2)} actually conceded · ${ordinal(t.defenceRank)} tightest of ${total}`)}</td>
       <td>${outCell(t)}</td>
-      <td>${run == null ? '<span class="faint">—</span>'
+      <td class="t-edge">${run == null ? '<span class="faint">—</span>'
         : `<span class="avgcell ${fdrClass(run)}">${run.toFixed(1)}</span>`}</td>
       ${events.map((e) => `<td class="fx">${fxCell(byEvent.get(e), cstate.lens)}</td>`).join("")}
     </tr>`;

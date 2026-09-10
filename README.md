@@ -271,6 +271,22 @@ clubs owes the reader the list it kept, so the qualifying clubs are named
 underneath in rank order — which doubles as the answer to the question the band
 was standing in for.
 
+Columns are ruled as well as rows. Seventeen columns is more than the eye tracks
+across on row spacing alone, and the verticals sit a step **above** the row
+border rather than matching it — which inverts the usual hierarchy on purpose:
+a row here is 37px tall and separates itself by spacing long before its hairline
+does any work, while a column is four characters wide with nothing else marking
+its edge. At the row border's own weight the verticals were present in the
+stylesheet and invisible on screen.
+
+There are no rules between the fixture columns. Those cells are already discrete
+blocks of colour with their own edges, and the gutter between them is 1.6px — a
+rule there would not divide the run so much as fill it, and the run is meant to
+read as one band rather than as ten things to look at. The boundary between the
+two halves does get a rule, one step up again: it is the only division in the
+row that means anything, which is who this is on the left and what is coming on
+the right.
+
 The stat columns are deliberately tight. Every 0.1rem taken off their gutters is
 another gameweek that fits before the table has to scroll, and a ticker that
 scrolls has given up the alignment it exists for. Ten gameweeks, an identity, and

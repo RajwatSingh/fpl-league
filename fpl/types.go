@@ -63,6 +63,11 @@ type Element struct {
 	CleanSheets           int `json:"clean_sheets"`
 	Bonus                 int `json:"bonus"`
 	DefensiveContribution int `json:"defensive_contribution"`
+	// The rate as well as the count. The ticker column shows the season
+	// total, where it sits beside Points and Form and reads as one of
+	// them; the player card has room for both, and there the rate is what
+	// compares a starter against someone who has played four hours.
+	DefensiveContributionPer90 float64 `json:"defensive_contribution_per_90"`
 
 	// The API sends every rate and expectation as a string, so these are
 	// parsed at the edge rather than fought with a custom unmarshaller.

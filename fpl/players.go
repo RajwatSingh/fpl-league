@@ -188,6 +188,7 @@ type PlayerRow struct {
 	XG       float64 `json:"xg"`
 	XA       float64 `json:"xa"`
 	DefCon   int     `json:"defCon"`
+	DefCon90 float64 `json:"defCon90"`
 	Bonus    int     `json:"bonus"`
 	Selected float64 `json:"selected"`
 	EPNext   float64 `json:"epNext"`
@@ -469,6 +470,7 @@ func playerRows(boot *Bootstrap, teams map[int]*TeamStrength) []PlayerRow {
 			XG:       atof(e.ExpectedGoals),
 			XA:       atof(e.ExpectedAssists),
 			DefCon:   e.DefensiveContribution,
+			DefCon90: e.DefensiveContributionPer90,
 			Bonus:    e.Bonus,
 			Selected: atof(e.SelectedByPercent),
 			EPNext:   atof(e.EPNext),
