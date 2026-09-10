@@ -885,7 +885,11 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
    content and the "GW13" headings above them start touching. The floor is
    what the widest heading needs, not what the narrowest cell wants. */
 .ticker td.fx, .ticker th.t-gw { width: 2.8rem; min-width: 2.6rem; }
-.ticker td.fx { padding-left: 0.1rem; padding-right: 0.1rem; }
+/* Barely any gutter between fixture cells, which is deliberate twice over:
+   it is the width that lets the tenth gameweek fit beside a full stat row,
+   and a run of near-abutting cells reads as one continuous band - which is
+   what the score-only view wants a season to look like. */
+.ticker td.fx { padding-left: 0.05rem; padding-right: 0.05rem; }
 .fx-cell {
   display: flex; flex-direction: column; gap: 1px;
   align-items: stretch; justify-content: center;
@@ -3000,7 +3004,7 @@ const P_SORTS = [
   { key: "goals", label: "Goals", dir: -1 },
   { key: "assists", label: "Assists", dir: -1 },
   { key: "xgi", label: "xG + xA", dir: -1 },
-  { key: "defCon90", label: "Def. contributions", dir: -1 },
+  { key: "defCon", label: "Def. contributions", dir: -1 },
   { key: "minutes", label: "Minutes", dir: -1 },
   { key: "name", label: "Name", dir: 1 },
 ];
@@ -3150,7 +3154,7 @@ function playerTable(rows) {
     <th scope="col">Pts</th>
     <th scope="col">Form</th>
     <th scope="col">xGI</th>
-    <th scope="col" data-tip="Defensive contributions per 90 minutes - tackles, interceptions, blocks and recoveries, the stat that scores points for defenders and midfielders">DC90</th>
+    <th scope="col" data-tip="Defensive contributions this season - tackles, interceptions, blocks and recoveries, the stat that scores points for defenders and midfielders">DefCon</th>
     <th scope="col">Own</th>
     <th scope="col">Run</th>
     ${events.map((e) => `<th scope="col" class="t-gw">GW${e}</th>`).join("")}
@@ -3163,7 +3167,7 @@ function playerTable(rows) {
       <td><span class="num gwpts">${p.points}</span></td>
       <td><span class="num dim">${p.form.toFixed(1)}</span></td>
       <td><span class="num dim">${(p.xg + p.xa).toFixed(1)}</span></td>
-      <td><span class="num dim">${p.defCon90.toFixed(1)}</span></td>
+      <td><span class="num dim">${p.defCon}</span></td>
       <td><span class="num dim">${p.selected.toFixed(1)}%</span></td>
       <td>${avgCell(p)}</td>
       ${events.map((e) => `<td class="fx">${fxCell(byEvent.get(e), p.group)}</td>`).join("")}
@@ -3184,7 +3188,7 @@ function playerList(rows) {
         <span><b>${p.points}</b> pts</span>
         <span><b>${p.form.toFixed(1)}</b> form</span>
         <span><b>${(p.xg + p.xa).toFixed(1)}</b> xGI</span>
-        <span><b>${p.defCon90.toFixed(1)}</b> DC90</span>
+        <span><b>${p.defCon}</b> DefCon</span>
         <span><b>${p.selected.toFixed(1)}%</b> owned</span>
       </span>
       <span class="prun">${events.map((e) => fxCell(byEvent.get(e), p.group)).join("")}</span>
@@ -3430,8 +3434,7 @@ function renderPlayerDialog(p) {
     [`£${p.cost.toFixed(1)}`, "Price"], [`${p.selected.toFixed(1)}%`, "Owned"],
     [p.minutes, "Minutes"], [p.starts, "Starts"], [p.goals, "Goals"],
     [p.assists, "Assists"], [p.xg.toFixed(2), "xG"], [p.xa.toFixed(2), "xA"],
-    [p.cs, "Clean sheets"], [p.defCon, "Def. cont."],
-    [p.defCon90.toFixed(1), "Def. cont./90"], [p.bonus, "Bonus"],
+    [p.cs, "Clean sheets"], [p.defCon, "Def. cont."], [p.bonus, "Bonus"],
   ].map(([n, l]) => `<div class="pstat"><div class="n">${esc(String(n))}</div><div class="l">${esc(l)}</div></div>`).join("");
 
   const news = p.news
