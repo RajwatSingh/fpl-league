@@ -795,19 +795,46 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
 .sections button[aria-selected="true"]:hover { background: var(--n4); color: var(--n8); }
 
 /* ── Difficulty ramp ───────────────────────────────────────────────────
-   Five steps from easy to hard. Unlike the accent set above this IS a
-   scale, so it is ordered by lightness as well as hue: printed grey, or
-   read by a deuteranope, step 1 is still the palest cell and step 5 the
-   deepest. That ordering is the reason a ramp can carry a value at all.
+   This is a DIVERGING scale, not a sequential one, and building it as
+   though it were sequential is what made the first version so quiet. The
+   quantity has a meaningful middle - an average Premier League fixture -
+   and two directions away from it, so the middle is the dark neutral the
+   page is already made of and both ends climb away from it in lightness.
+   A run of easy fixtures and a run of brutal ones now differ in weight on
+   the page, not just in tint, which is the whole point of a ticker: the
+   shape of a season should be visible before any number is read.
 
-   It still never carries one alone. Every cell prints its own score, so
-   the colour is a second reading of a number that is already there - the
-   difference between a ticker you can skim and one you have to decode. */
-.fdr1 { --fdr: color-mix(in oklch, var(--green) 34%, var(--n1)); --fdrt: var(--n8); }
-.fdr2 { --fdr: color-mix(in oklch, var(--green) 17%, var(--n1)); --fdrt: var(--n8); }
-.fdr3 { --fdr: var(--n2);                                        --fdrt: var(--n7); }
-.fdr4 { --fdr: color-mix(in oklch, var(--orange) 20%, var(--n1)); --fdrt: var(--n8); }
-.fdr5 { --fdr: color-mix(in oklch, var(--rose) 32%, var(--n1));   --fdrt: var(--n8); }
+   Both ends land light enough to need dark text, which is deliberate. The
+   inversion is a third channel on top of hue and lightness, and it is the
+   one that survives a greyscale print of the table.
+
+   None of it carries the value alone: every cell still prints its score.  */
+.fdr1 { --fdr: var(--green);                                      --fdrt: var(--n0); }
+.fdr2 { --fdr: color-mix(in oklch, var(--green) 42%, var(--n2));  --fdrt: var(--n8); }
+.fdr3 { --fdr: var(--n3);                                         --fdrt: var(--n7); }
+.fdr4 { --fdr: color-mix(in oklch, var(--orange) 48%, var(--n2)); --fdrt: var(--n8); }
+.fdr5 { --fdr: var(--rose);                                       --fdrt: var(--n0); }
+
+/* ── The strength band's roll-call ─────────────────────────────────────
+   A band filter that silently drops fourteen clubs is asking to be
+   trusted. This is the list it kept, in rank order, so the control shows
+   its working - and doubles as the answer to "who are the good attacking
+   sides", which is the question the band is standing in for.            */
+.bandline {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+  margin: -0.35rem 0 0.9rem;
+}
+.bl-lbl {
+  font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--n6); margin-right: 0.15rem;
+}
+.band-club {
+  display: inline-flex; align-items: baseline; gap: 0.3rem;
+  border: 1px solid var(--n4); border-radius: 2px; padding: 0.15rem 0.4rem;
+  font-family: var(--mono); font-size: 0.6875rem; cursor: help;
+}
+.band-club b { color: var(--n8); font-weight: 500; }
+.band-club i { color: var(--n5); font-style: normal; font-size: 0.5625rem; }
 
 /* ── Player controls ───────────────────────────────────────────────────
    Search is the one field here that is genuinely wide - a name is not six
@@ -833,13 +860,16 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
   position: sticky; top: 0; z-index: 2; background: var(--n0);
   font-family: var(--mono); font-size: 0.625rem; font-weight: 500;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--n6);
-  text-align: right; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--n4);
+  text-align: right; padding: 0.5rem 0.3rem; border-bottom: 1px solid var(--n4);
   white-space: nowrap;
 }
 .ticker th.t-who, .ticker th.t-gw { text-align: left; }
 .ticker th.t-gw { text-align: center; padding-left: 0.15rem; padding-right: 0.15rem; }
+/* The stat columns pay for the run. Every 0.1rem taken off their gutters
+   is another gameweek that fits before the table has to scroll, and a
+   ticker that scrolls has given up the alignment it exists for. */
 .ticker td {
-  padding: 0.4rem; border-bottom: 1px solid var(--n1);
+  padding: 0.4rem 0.3rem; border-bottom: 1px solid var(--n1);
   vertical-align: middle; text-align: right; white-space: nowrap;
 }
 .ticker td.t-who { text-align: left; width: 100%; }
@@ -849,14 +879,19 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
 
 /* The fixture cells are the row's payload, so they get a fixed width and
    the identity column absorbs everything left over. */
-.ticker td.fx, .ticker th.t-gw { width: 2.8rem; }
+/* A width is only a suggestion to a table, and the identity column is set
+   to absorb all the slack - so in the score-only view, where a cell holds
+   three characters instead of seven, these columns collapse to their
+   content and the "GW13" headings above them start touching. The floor is
+   what the widest heading needs, not what the narrowest cell wants. */
+.ticker td.fx, .ticker th.t-gw { width: 2.8rem; min-width: 2.6rem; }
 .ticker td.fx { padding-left: 0.1rem; padding-right: 0.1rem; }
 .fx-cell {
   display: flex; flex-direction: column; gap: 1px;
   align-items: stretch; justify-content: center;
 }
 .fx-chip {
-  display: flex; align-items: baseline; justify-content: center; gap: 0.25rem;
+  display: flex; align-items: baseline; justify-content: center; gap: 0.15rem;
   background: var(--fdr); color: var(--fdrt);
   border-radius: 2px; padding: 0.2rem 0.1rem;
   font-family: var(--mono); font-size: 0.625rem; line-height: 1.25;
@@ -866,6 +901,11 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
    glance, which matches which one is the harder afternoon. */
 .fx-chip.away .o { text-transform: lowercase; }
 .fx-chip .s { font-weight: 700; font-variant-numeric: tabular-nums; opacity: 0.85; }
+/* Score-only: the number is no longer a footnote to the opponent, so it
+   drops the dimming and takes the size the opponent had. */
+.fx-chip.solo { justify-content: center; padding: 0.3rem 0.1rem; }
+.fx-chip.solo .s { font-size: 0.75rem; opacity: 1; }
+.fx-chip.nameonly .o { font-weight: 700; }
 .fx-chip.dbl { padding: 0.1rem 0.1rem; }
 .fx-blank {
   display: block; text-align: center; color: var(--n4);
@@ -874,7 +914,11 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
 /* A midweek match is the one thing in a cell the score cannot say for
    itself - two fixtures can rate 5.5 and only one of them is on a
    Wednesday. A notch on the top edge, not a hue: the ramp is spoken for. */
-.fx-chip.mid { box-shadow: inset 0 2px 0 color-mix(in oklch, var(--purple) 70%, transparent); }
+.fx-chip.mid { box-shadow: inset 0 2px 0 var(--purple); }
+/* Against the two saturated ends the purple notch has nothing to sit
+   against, so there it goes dark instead - same mark, opposite direction,
+   for the same reason the text inverts. */
+.fx-chip.mid.fdr1, .fx-chip.mid.fdr5 { box-shadow: inset 0 2px 0 color-mix(in oklch, var(--n0) 75%, transparent); }
 
 .pwho { display: flex; flex-direction: column; line-height: 1.25; }
 .pwho .pn { color: var(--n8); display: flex; align-items: center; gap: 0.35rem; }
@@ -1569,6 +1613,18 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
       <select id="pteam"><option value="">All clubs</option></select>
     </div>
     <div class="field">
+      <label for="pstrength">Club rated</label>
+      <select id="pstrength">
+        <option value="">Any club</option>
+        <option value="atk6">Top 6 attacks</option>
+        <option value="atk10">Top 10 attacks</option>
+        <option value="def6">Top 6 defences</option>
+        <option value="def10">Top 10 defences</option>
+        <option value="atkw6">Bottom 6 attacks</option>
+        <option value="defw6">Bottom 6 defences</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="pminutes">Playing</label>
       <select id="pminutes">
         <option value="1">Has played</option>
@@ -1590,6 +1646,14 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
         <option value="8">Next 8</option>
         <option value="10" selected>Next 10</option>
         <option value="15">Next 15</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="pcells">Ticker</label>
+      <select id="pcells">
+        <option value="both">Opponent &amp; score</option>
+        <option value="score">Score only</option>
+        <option value="opp">Opponent only</option>
       </select>
     </div>
     <button type="submit" id="pgo" data-tip="Rebuild the fixture ratings from the FPL API">Refresh</button>
@@ -2870,6 +2934,14 @@ const pstate = {
   // keeps the 200-odd squad players who will not kick a ball out of a
   // table whose whole job is comparison.
   minutes: 1,
+  // A club-strength band - the six best attacks, the ten best defences -
+  // rather than a club. "Who are the good attacking sides right now" is a
+  // question the model already answers; the club dropdown made you know
+  // the answer before you could ask it.
+  strength: "",
+  // How much of a fixture a ticker cell shows. Score-only is the view for
+  // reading a run's shape; opponent-only is the traditional fixture list.
+  cells: "both",
   search: "",
   horizon: 10,
   dialog: null,
@@ -2892,6 +2964,31 @@ function fdrClass(score) {
   return "fdr5";
 }
 
+// Each band is a rank cut: which rank to read, how many clubs, and which
+// end of the table. Keeping them as data means the label on the control
+// and the line that names the qualifying clubs cannot drift apart.
+const STRENGTH = {
+  atk6:  { rank: "attackRank",  n: 6,  best: true,  label: "Top 6 attacks" },
+  atk10: { rank: "attackRank",  n: 10, best: true,  label: "Top 10 attacks" },
+  def6:  { rank: "defenceRank", n: 6,  best: true,  label: "Top 6 defences" },
+  def10: { rank: "defenceRank", n: 10, best: true,  label: "Top 10 defences" },
+  atkw6: { rank: "attackRank",  n: 6,  best: false, label: "Bottom 6 attacks" },
+  defw6: { rank: "defenceRank", n: 6,  best: false, label: "Bottom 6 defences" },
+};
+
+// The clubs a band selects, in rank order, so the filter can show its own
+// working instead of silently removing three quarters of the table.
+function strengthClubs(band) {
+  const spec = STRENGTH[band];
+  if (!spec || !pstate.board) return [];
+  const total = pstate.board.teams.length;
+  return pstate.board.teams
+    .filter((t) => t[spec.rank] && (spec.best
+      ? t[spec.rank] <= spec.n
+      : t[spec.rank] > total - spec.n))
+    .sort((a, b) => (spec.best ? a[spec.rank] - b[spec.rank] : b[spec.rank] - a[spec.rank]));
+}
+
 const P_SORTS = [
   { key: "fixScore", label: "Fixture run", dir: 1 },
   { key: "points", label: "Total points", dir: -1 },
@@ -2903,6 +3000,7 @@ const P_SORTS = [
   { key: "goals", label: "Goals", dir: -1 },
   { key: "assists", label: "Assists", dir: -1 },
   { key: "xgi", label: "xG + xA", dir: -1 },
+  { key: "defCon90", label: "Def. contributions", dir: -1 },
   { key: "minutes", label: "Minutes", dir: -1 },
   { key: "name", label: "Name", dir: 1 },
 ];
@@ -2951,11 +3049,17 @@ function filteredPlayers() {
   const b = pstate.board;
   if (!b) return [];
   const q = pstate.search.trim().toLowerCase();
+  // Resolved once, not once per player: the band is the same for all 655
+  // rows, and it is rebuilt on every keystroke of the search box.
+  const band = pstate.strength
+    ? new Set(strengthClubs(pstate.strength).map((t) => t.id))
+    : null;
   const rows = b.players.filter((p) => {
     if (pstate.pos !== "all" && p.position !== pstate.pos) return false;
     if (pstate.team && p.teamId !== Number(pstate.team)) return false;
     if (pstate.minutes === 1 && p.minutes === 0) return false;
     if (pstate.minutes === 2 && p.status !== "a") return false;
+    if (band && !band.has(p.teamId)) return false;
     if (!q) return true;
     const t = teamById(p.teamId);
     return p.name.toLowerCase().includes(q)
@@ -2998,11 +3102,24 @@ const availFlag = (p) => {
 
 function fxChip(f, group) {
   const score = lensScore(f, group);
-  const cls = [fdrClass(score), f.home ? "home" : "away", f.midweek ? "mid" : ""].join(" ");
+  const mode = pstate.cells;
+  const cls = [
+    fdrClass(score),
+    f.home ? "home" : "away",
+    f.midweek ? "mid" : "",
+    mode === "score" ? "solo" : mode === "opp" ? "nameonly" : "",
+  ].filter(Boolean).join(" ");
+  // Whatever the cell drops still reaches the reader on hover, so the
+  // score-only view is a change of emphasis rather than a loss of detail.
   const tip = `${f.home ? "vs" : "away at"} ${f.opponent} · GW${f.event} · ${score.toFixed(1)}/10`
     + (f.midweek ? " · midweek" : "")
     + (f.restDays && f.restDays <= 4 ? ` · ${f.restDays} days' rest` : "");
-  return `<span class="fx-chip ${cls}" data-tip="${esc(tip)}"><span class="o">${esc(f.opponent)}</span><span class="s">${score.toFixed(1)}</span></span>`;
+  const body = mode === "score"
+    ? `<span class="s">${score.toFixed(1)}</span>`
+    : mode === "opp"
+      ? `<span class="o">${esc(f.opponent)}</span>`
+      : `<span class="o">${esc(f.opponent)}</span><span class="s">${score.toFixed(1)}</span>`;
+  return `<span class="fx-chip ${cls}" data-tip="${esc(tip)}">${body}</span>`;
 }
 
 // One gameweek's cell for one club: a blank, a match, or a double with
@@ -3033,6 +3150,7 @@ function playerTable(rows) {
     <th scope="col">Pts</th>
     <th scope="col">Form</th>
     <th scope="col">xGI</th>
+    <th scope="col" data-tip="Defensive contributions per 90 minutes - tackles, interceptions, blocks and recoveries, the stat that scores points for defenders and midfielders">DC90</th>
     <th scope="col">Own</th>
     <th scope="col">Run</th>
     ${events.map((e) => `<th scope="col" class="t-gw">GW${e}</th>`).join("")}
@@ -3045,6 +3163,7 @@ function playerTable(rows) {
       <td><span class="num gwpts">${p.points}</span></td>
       <td><span class="num dim">${p.form.toFixed(1)}</span></td>
       <td><span class="num dim">${(p.xg + p.xa).toFixed(1)}</span></td>
+      <td><span class="num dim">${p.defCon90.toFixed(1)}</span></td>
       <td><span class="num dim">${p.selected.toFixed(1)}%</span></td>
       <td>${avgCell(p)}</td>
       ${events.map((e) => `<td class="fx">${fxCell(byEvent.get(e), p.group)}</td>`).join("")}
@@ -3065,6 +3184,7 @@ function playerList(rows) {
         <span><b>${p.points}</b> pts</span>
         <span><b>${p.form.toFixed(1)}</b> form</span>
         <span><b>${(p.xg + p.xa).toFixed(1)}</b> xGI</span>
+        <span><b>${p.defCon90.toFixed(1)}</b> DC90</span>
         <span><b>${p.selected.toFixed(1)}%</b> owned</span>
       </span>
       <span class="prun">${events.map((e) => fxCell(byEvent.get(e), p.group)).join("")}</span>
@@ -3101,9 +3221,30 @@ function renderPlayers() {
 
   $("ppanel").innerHTML =
     `<h2 class="eyebrow">gw${b.event}–${b.event + b.horizon - 1} · ${all.length} players</h2>`
+    + bandLine()
     + (isMobile() ? playerList(rows) : playerTable(rows))
     + playerNotes(capped);
   updateScrollHint();
+}
+
+// A filter that removes three quarters of the table owes the reader the
+// list it kept. Naming the clubs in rank order also answers the question
+// the band was standing in for - who the good attacking sides actually
+// are - without making anyone open a second view to find out.
+function bandLine() {
+  const spec = STRENGTH[pstate.strength];
+  if (!spec) return "";
+  const clubs = strengthClubs(pstate.strength);
+  if (!clubs.length) return "";
+  const key = spec.rank === "attackRank" ? "attack" : "defence";
+  const chips = clubs.map((t) => {
+    const n = spec.rank === "attackRank"
+      ? `${t.xgPer90.toFixed(2)} xG per 90`
+      : `${t.xgcPer90.toFixed(2)} xGC per 90`;
+    return `<span class="band-club" data-tip="${esc(`${t.name} — ${ordinal(t[spec.rank])} of ${pstate.board.teams.length} for ${key} · ${n}`)}">
+      <b>${esc(t.short)}</b><i>${ordinal(t[spec.rank])}</i></span>`;
+  }).join("");
+  return `<div class="bandline"><span class="bl-lbl">${esc(spec.label)}</span>${chips}</div>`;
 }
 
 function playerNotes(capped) {
@@ -3124,8 +3265,11 @@ function playerNotes(capped) {
     </div>
     <div class="notes">
       <span>Scores run <b>1 (easiest)</b> to <b>10 (hardest)</b> and are rated for the player's own job: a forward's
-        score is about the opponent's defence, a defender's about their attack. <b>lowercase</b> opponents are away.</span>
-      <span>Select a player for the season line and the reason behind every one of their fixture scores.</span>
+        score is about the opponent's defence, a defender's about their attack.${
+          pstate.cells === "score" ? "" : " <b>lowercase</b> opponents are away."}</span>
+      <span>${pstate.cells === "score"
+        ? "Hover a cell for the opponent and the date. "
+        : ""}Select a player for the season line and the reason behind every one of their fixture scores.</span>
       ${capped}
     </div>`;
 }
@@ -3449,6 +3593,16 @@ $("psearch").addEventListener("input", () => {
 
 $("pteam").addEventListener("change", () => {
   pstate.team = $("pteam").value;
+  if (pstate.board) renderPlayers();
+});
+
+$("pstrength").addEventListener("change", () => {
+  pstate.strength = $("pstrength").value;
+  if (pstate.board) renderPlayers();
+});
+
+$("pcells").addEventListener("change", () => {
+  pstate.cells = $("pcells").value;
   if (pstate.board) renderPlayers();
 });
 

@@ -174,6 +174,10 @@ vector because the dialog shows the breakdown: an 8.4 has to be readable as
 | Fatigue | 0 to +0.9 | A Tuesday–Thursday kickoff, plus a turnaround of four days or less; they stack |
 | Injuries | ±0.8 | Opponent's absences minus your own, so two equally depleted squads cancel |
 
+Clubs are also ranked 1–20 for squad value, attack and defence, which is what
+the **Club rated** filter bands on and what the fixture cards quote instead of
+raw rates.
+
 Three things the model does deliberately:
 
 **It is position-aware.** A forward's fixture is easy when the opponent's defence
@@ -240,11 +244,39 @@ shape. A blank keeps its column and shows `—`; a double stacks both matches
 rather than averaging them, since two fixtures is the fact that matters most
 about that week.
 
-The difficulty ramp is the one place in the UI that is a scale rather than a
-syntax theme, so unlike the accent set it is ordered by lightness as well as
-hue — read in greyscale, step 1 is still the palest and step 5 the deepest. It
-still never carries a value alone: every cell prints its own score, and a
-midweek round is marked with a notch rather than a sixth colour.
+The difficulty ramp is **diverging, not sequential**, and building it as though
+it were sequential is what made the first version so quiet. The quantity has a
+meaningful middle — an average Premier League fixture — and two directions away
+from it, so the middle is the dark neutral the page is already made of and both
+ends climb away from it in lightness. A run of kind fixtures and a run of brutal
+ones now differ in weight on the page, not just in tint, which is the point of a
+ticker: the shape of a season should be visible before any number is read.
+
+Both ends land light enough to need dark text. The inversion is a third channel
+on top of hue and lightness, and the one that survives a greyscale print. None
+of it carries the value alone: every cell still prints its score, and a midweek
+round is a notch rather than a sixth colour.
+
+**Ticker** switches how much of a fixture a cell shows. *Opponent & score* is the
+default; *Score only* drops the opponent, gives the number the whole cell and
+turns the run into a heat map you read for shape; *Opponent only* is the
+traditional fixture list. Whatever a cell drops is still on hover, so it is a
+change of emphasis rather than a loss.
+
+**Club rated** filters by band rather than by club — the top 6 or 10 attacks, the
+top 6 or 10 defences, or the bottom 6 of either. "Who are the good attacking
+sides right now" is a question the model already answers, and the club dropdown
+made you know the answer before you could ask it. A band that drops fourteen
+clubs owes the reader the list it kept, so the qualifying clubs are named
+underneath in rank order — which doubles as the answer to the question the band
+was standing in for.
+
+The stat columns are deliberately tight. Every 0.1rem taken off their gutters is
+another gameweek that fits before the table has to scroll, and a ticker that
+scrolls has given up the alignment it exists for. Ten gameweeks, an identity, and
+five stats fit inside the page's own width; the fixture columns carry a
+`min-width` so that in the score-only view — where a cell holds three characters
+instead of seven — they cannot collapse under their own `GW13` headings.
 
 The phone gets the same rows as cards with the run as its own scrolling strip.
 The fixed columns are exactly what a 390px screen cannot hold, and what is
