@@ -879,17 +879,31 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
 
 /* The fixture cells are the row's payload, so they get a fixed width and
    the identity column absorbs everything left over. */
+/* The league table gives every column from the third on a 1.1rem gutter.
+   That is right for its eight columns and ruinous for seventeen here - but
+   `tbody td:nth-child(n+3)` out-specifies a plain `.ticker td`, so a
+   shorthand override loses silently and the ticker keeps paying 2.2rem a
+   column for gutters it never asked for. The override has to match the
+   league rule's shape to beat it. */
+.ticker thead th:nth-child(n+3), .ticker tbody td:nth-child(n+3) {
+  padding-left: 0.3rem; padding-right: 0.3rem;
+}
+
 /* A width is only a suggestion to a table, and the identity column is set
    to absorb all the slack - so in the score-only view, where a cell holds
    three characters instead of seven, these columns collapse to their
    content and the "GW13" headings above them start touching. The floor is
    what the widest heading needs, not what the narrowest cell wants. */
 .ticker td.fx, .ticker th.t-gw { width: 2.8rem; min-width: 2.6rem; }
+
 /* Barely any gutter between fixture cells, which is deliberate twice over:
    it is the width that lets the tenth gameweek fit beside a full stat row,
    and a run of near-abutting cells reads as one continuous band - which is
-   what the score-only view wants a season to look like. */
-.ticker td.fx { padding-left: 0.05rem; padding-right: 0.05rem; }
+   what the score-only view wants a season to look like. Specificity again:
+   this has to out-rank the nth-child override above, not just follow it. */
+.ticker thead th.t-gw:nth-child(n+3), .ticker tbody td.fx:nth-child(n+3) {
+  padding-left: 0.05rem; padding-right: 0.05rem;
+}
 .fx-cell {
   display: flex; flex-direction: column; gap: 1px;
   align-items: stretch; justify-content: center;
@@ -975,26 +989,102 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
   font-family: var(--mono); font-size: 0.6875rem; color: var(--n6);
 }
 .prow .pnums b { color: var(--n8); font-weight: 500; }
-.prow .prun {
+/* The run strip belongs to the phone layout, not to one row type - the
+   clubs list reuses it verbatim, and scoping it to .prow was what left
+   those cells stacking vertically down the page instead of scrolling. */
+.prun {
   grid-column: 1 / -1;
   display: flex; gap: 2px; overflow-x: auto; padding-bottom: 0.15rem;
   scrollbar-width: none;
 }
-.prow .prun::-webkit-scrollbar { display: none; }
-.prow .prun .fx-cell { flex: 0 0 2.9rem; }
+.prun::-webkit-scrollbar { display: none; }
+.prun .fx-cell { flex: 0 0 2.9rem; }
+
+/* ── Clubs ─────────────────────────────────────────────────────────────
+   Twenty rows instead of four hundred, which changes what the table can
+   afford: every rating gets its own column and its league position beside
+   it, and the fixture run still fits because there are no player stats
+   competing for the width.
+
+   It reuses the ticker's grid wholesale. The two tables are the same
+   object at two zoom levels - a club and the players who inherit its
+   fixtures - so a cell that means one thing in the players view must not
+   mean another here.                                                    */
+.ticker td.c-rank, .ticker th.c-rank { width: 2.2rem; text-align: right; }
+.crank { font-family: var(--mono); font-size: 0.8125rem; color: var(--n6); }
+
+.cwho { display: flex; flex-direction: column; line-height: 1.25; }
+.cwho .cn { color: var(--n8); }
+.cwho .cs { font-family: var(--mono); font-size: 0.6875rem; color: var(--n6); }
+
+/* A rating and where it stands. The number is the measurement and the
+   position is what it means, so they travel together - "1.80 xGC" asks
+   the reader to hold nineteen other clubs in their head, "1.80 · 15th"
+   does not. */
+.rate { display: inline-flex; align-items: baseline; gap: 0.3rem; justify-content: flex-end; }
+.rate .v { font-family: var(--mono); font-size: 0.8125rem; color: var(--n8); font-variant-numeric: tabular-nums; }
+.rate .r {
+  font-family: var(--mono); font-size: 0.5625rem; color: var(--n0);
+  background: var(--n5); border-radius: 2px; padding: 0.05rem 0.22rem; line-height: 1.4;
+}
+/* Top and bottom of a table are the two positions worth spotting without
+   reading, so they get the only fills. Every other rank stays neutral -
+   a column where all twenty badges are coloured has ranked nothing. */
+.rate .r.good { background: var(--green); }
+.rate .r.bad  { background: var(--rose); }
+.rate .sub { font-family: var(--mono); font-size: 0.625rem; color: var(--n5); }
+
+.cout { font-family: var(--mono); font-size: 0.75rem; color: var(--n6); }
+.cout.hurt { color: var(--orange); }
+
+/* ── Clubs, phone ──────────────────────────────────────────────────────
+   Same trade as the player list: the aligned columns cannot survive 390px,
+   so the run gets its own scrolling strip under a two-line head.        */
+.crow {
+  display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  gap: 0.35rem 0.6rem; align-items: center;
+  padding: 0.7rem 0.15rem; border-bottom: 1px solid var(--n1);
+  cursor: pointer;
+}
+.crow:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.crow .cnums {
+  grid-column: 1 / -1;
+  display: flex; gap: 0.75rem; align-items: baseline; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 0.6875rem; color: var(--n6);
+}
+.crow .cnums b { color: var(--n8); font-weight: 500; }
+
+/* The club dialog's two-lens note - the same fixture is a different
+   afternoon depending on who you are, and the dialog shows one lens at a
+   time, so it has to say which. */
+.lensnote {
+  font-family: var(--mono); font-size: 0.6875rem; color: var(--n6);
+  margin: 0.5rem 0 1rem;
+}
+.lensnote b { color: var(--n8); font-weight: 500; }
+.injlist {
+  display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.45rem;
+}
+.injlist span {
+  font-family: var(--mono); font-size: 0.625rem; color: var(--n7);
+  border: 1px solid var(--n4); border-radius: 2px; padding: 0.1rem 0.35rem;
+}
 
 /* ── Player dialog ─────────────────────────────────────────────────────
    The table answers "who has a good run"; this answers "why", which is
    the question a difficulty score has to be able to survive. Every term
    that went into a fixture is shown signed, against the same zero.      */
 .pstats {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr));
   gap: 0.75rem 1rem; margin-bottom: 1.1rem;
 }
+/* A rating and its league position are one reading, so they must not break
+   across two lines - "£103m" over a stray "2" reads as two statistics. */
 .pstat .n {
   font-family: var(--mono); font-size: 1.05rem; color: var(--n8);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+.pstat .n .r { position: relative; top: -0.15em; }
 .pstat .l {
   font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--n6);
@@ -1549,6 +1639,7 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
   <nav class="sections" role="tablist" aria-label="Section">
     <button type="button" role="tab" id="sec-league" aria-selected="true" aria-controls="results">League</button>
     <button type="button" role="tab" id="sec-players" aria-selected="false" aria-controls="results" tabindex="-1">Players</button>
+    <button type="button" role="tab" id="sec-clubs" aria-selected="false" aria-controls="results" tabindex="-1">Clubs</button>
   </nav>
 
   <button type="button" class="filters-toggle" id="filters-toggle" aria-expanded="true" aria-controls="controls">
@@ -1662,11 +1753,40 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
     </div>
     <button type="submit" id="pgo" data-tip="Rebuild the fixture ratings from the FPL API">Refresh</button>
   </form>
+
+  <form class="controls" id="ccontrols" hidden>
+    <div class="field f-sort">
+      <label for="csort">Sort</label>
+      <div class="sortrow">
+        <select id="csort"></select>
+        <button type="button" id="csortdir" data-tip="Reverse the sort">↓</button>
+      </div>
+    </div>
+    <div class="field f-pos">
+      <span class="lbl" id="lens-label">Rate fixtures for</span>
+      <div class="toggle" role="tablist" id="lens-tabs" aria-labelledby="lens-label">
+        <button type="button" role="tab" id="lens-att" aria-selected="true" aria-controls="cpanel">Attackers</button>
+        <button type="button" role="tab" id="lens-def" aria-selected="false" aria-controls="cpanel" tabindex="-1">Defenders</button>
+        <span class="tabind init" id="lens-ind" aria-hidden="true"></span>
+      </div>
+    </div>
+    <div class="field">
+      <label for="chorizon">Fixtures</label>
+      <select id="chorizon">
+        <option value="5">Next 5</option>
+        <option value="8">Next 8</option>
+        <option value="10" selected>Next 10</option>
+        <option value="15">Next 15</option>
+      </select>
+    </div>
+    <button type="submit" id="cgo" data-tip="Rebuild the club ratings from the FPL API">Refresh</button>
+  </form>
   </div>
 
   <main id="results">
     <div id="panel" role="tabpanel" aria-labelledby="view-gw" tabindex="0"></div>
     <div id="ppanel" role="tabpanel" aria-labelledby="sec-players" tabindex="0" hidden></div>
+    <div id="cpanel" role="tabpanel" aria-labelledby="sec-clubs" tabindex="0" hidden></div>
   </main>
 </div>
 
@@ -1694,6 +1814,10 @@ tbody tr.row.sliding { transition: transform 520ms var(--ease); }
 
 <dialog class="dlg" id="player-dialog" aria-labelledby="pl-entry">
   <div class="dlg-panel" id="pl-panel"></div>
+</dialog>
+
+<dialog class="dlg" id="club-dialog" aria-labelledby="cl-entry">
+  <div class="dlg-panel" id="cl-panel"></div>
 </dialog>
 
 <div id="toaster" role="region" aria-live="polite" aria-label="Notifications"></div>
@@ -1971,6 +2095,19 @@ function wireTabs(list, onSelect) {
   const tabs = [...list.querySelectorAll('[role="tab"]')];
   const pick = (tab) => {
     if (tab.getAttribute("aria-selected") === "true") return;
+    // The widget owns its own selected state. Leaving that to each
+    // onSelect worked only for the handlers that happened to do it: one
+    // that just updated a model - the position filter, the club lens -
+    // left the highlight on the old tab, and then refused to come back to
+    // it, because the guard above reads the very attribute nobody moved.
+    // Handlers that do their own marking are unaffected; they now set the
+    // same values twice.
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+    }
+    moveIndicator(list);
     onSelect(tab);
   };
   tabs.forEach((tab, i) => {
@@ -3337,11 +3474,11 @@ function term(label, v, sub) {
   </span>`;
 }
 
-function fixtureRow(f, p) {
-  const score = lensScore(f, p.group);
-  const matchup = p.group === "def" ? f.defMatchup : f.attMatchup;
+function fixtureRow(f, group, teamId) {
+  const score = lensScore(f, group);
+  const matchup = group === "def" ? f.defMatchup : f.attMatchup;
   const opp = teamById(f.oppId);
-  const me = teamById(p.teamId);
+  const me = teamById(teamId);
   const oppName = opp ? opp.name : f.opponent;
   const kick = new Date(f.kickoff).toLocaleDateString(undefined, {
     weekday: "short", day: "numeric", month: "short",
@@ -3368,7 +3505,7 @@ function fixtureRow(f, p) {
   // and smaller in the model's weighting.
   let matchSub = "", matchLabel = "Their defence";
   if (opp) {
-    if (p.group === "def") {
+    if (group === "def") {
       matchLabel = "Their attack";
       matchSub = `<b>${opp.xgPer90.toFixed(2)} xG</b> per 90 · ${opp.gfPer90.toFixed(2)} scored`
         + rankSuffix(rankPhrase(opp.attackRank,
@@ -3390,7 +3527,7 @@ function fixtureRow(f, p) {
   const injSub = Math.abs(f.injury) < 0.08 ? ""
     : f.injury < 0
       ? `${esc(oppName)} are the more depleted side`
-      : `${esc(me ? me.name : p.team)} are the more depleted side`;
+      : `${esc(me ? me.name : "")} are the more depleted side`;
 
   return `<div class="fxrow">
     <div class="fxhead">
@@ -3441,7 +3578,7 @@ function renderPlayerDialog(p) {
     ? `<div class="pnews"><div class="h">${esc(p.status === "s" ? "suspended" : p.status === "d" ? "doubt" : "unavailable")}</div>${esc(p.news)}</div>`
     : "";
 
-  const fx = t ? t.fixtures.map((f) => fixtureRow(f, p)).join("") : "";
+  const fx = t ? t.fixtures.map((f) => fixtureRow(f, p.group, p.teamId)).join("") : "";
   const lens = p.group === "def"
     ? "rated for a defender: the opponent's attack is what makes it hard"
     : "rated for an attacker: the opponent's defence is what makes it hard";
@@ -3475,13 +3612,22 @@ $("player-dialog").addEventListener("close", () => { pstate.dialog = null; });
 // ── loading ───────────────────────────────────────────────────────────
 
 async function loadPlayers() {
+  // One fetch, two sections. Whichever is on screen owns the skeleton, the
+  // status strip and any failure message - loading the clubs table and
+  // showing the spinner in the players panel would be a fetch with no
+  // visible cause.
+  const clubs = state.section === "clubs";
+  const panel = clubs ? $("cpanel") : $("ppanel");
+  const subject = clubs ? "Club Ratings" : "Players & Fixtures";
+
   $("pgo").disabled = true;
-  setSectionStatus("players", "stale", "Players & Fixtures", "fetching…", "");
+  $("cgo").disabled = true;
+  setSectionStatus(state.section, "stale", subject, "fetching…", "");
 
   const keep = pstate.board && pstate.board.horizon === pstate.horizon;
-  const scroller = keep && $("ppanel").querySelector(".table-scroll, .plist:not(.skeleton)");
+  const scroller = keep && panel.querySelector(".table-scroll, .plist:not(.skeleton)");
   if (scroller) scroller.classList.add("loading");
-  else $("ppanel").innerHTML = playerSkeleton();
+  else panel.innerHTML = playerSkeleton();
 
   try {
     const res = await fetch(`/api/players?horizon=${pstate.horizon}`);
@@ -3490,12 +3636,16 @@ async function loadPlayers() {
 
     pstate.board = data;
     fillClubs(data);
-    setSectionStatus("players", "ok", "Players & Fixtures",
-      `gw${data.event}–${data.event + data.horizon - 1} · difficulty out of 10`,
-      `${data.players.length} players`);
-    renderPlayers();
+    if (state.section === "clubs") {
+      renderClubs();
+      setStatus("ok", "Club Ratings", boardCaption(), `${data.teams.length} clubs`);
+    } else {
+      renderPlayers();
+      setSectionStatus("players", "ok", "Players & Fixtures", boardCaption(),
+        `${data.players.length} players`);
+    }
   } catch (err) {
-    setSectionStatus("players", "err", "Players & Fixtures", "failed", "");
+    setSectionStatus(state.section, "err", subject, "failed", "");
     if (scroller) {
       scroller.classList.remove("loading");
       toast({
@@ -3506,11 +3656,12 @@ async function loadPlayers() {
       });
     } else {
       pstate.board = null;
-      $("ppanel").innerHTML =
+      panel.innerHTML =
         `<div class="msg error"><div class="m-head">could not load</div><div class="m-body">${esc(err.message)}</div></div>`;
     }
   } finally {
     $("pgo").disabled = false;
+    $("cgo").disabled = false;
     if (isMobile()) setFiltersOpen(false);
   }
 }
@@ -3523,56 +3674,359 @@ function fillClubs(data) {
   sel.value = chosen;
 }
 
+// ── clubs ─────────────────────────────────────────────────────────────
+// The same board as the players section, read one level up. Every rating
+// the difficulty model uses is already on the wire, and this is the view
+// that shows them as themselves rather than as a term inside somebody's
+// fixture. No extra request: the board is one object and both sections
+// share it, so switching between them is instant.
+
+const cstate = {
+  sort: { key: "squadValue", dir: -1 },
+  // Which lens the fixture run is rated through here. A club does not have
+  // one difficulty - its forwards and its defenders face different
+  // afternoons - so the section picks a side rather than averaging two
+  // numbers that are about different things.
+  lens: "att",
+  dialog: null,
+};
+
+const C_SORTS = [
+  { key: "squadValue", label: "Squad value", dir: -1 },
+  { key: "attack", label: "Attack", dir: -1 },
+  { key: "defence", label: "Defence", dir: 1 },
+  { key: "run", label: "Fixture run", dir: 1 },
+  { key: "injuryBurden", label: "Injuries", dir: -1 },
+  { key: "name", label: "Name", dir: 1 },
+];
+
+// The mean difficulty of a club's run through the section's current lens.
+function clubRun(t, lens) {
+  if (!t.fixtures.length) return null;
+  const sum = t.fixtures.reduce((n, f) => n + lensScore(f, lens || cstate.lens), 0);
+  return round1(sum / t.fixtures.length);
+}
+
+const round1 = (v) => Math.round(v * 10) / 10;
+
+const cSortValue = (t, key) =>
+  key === "attack" ? t.xgPer90
+  : key === "defence" ? t.xgcPer90
+  : key === "run" ? (clubRun(t) ?? 99)
+  : key === "name" ? t.name.toLowerCase()
+  : t[key];
+
+function fillClubSorts() {
+  $("csort").innerHTML = C_SORTS.map(
+    (c) => `<option value="${c.key}">${esc(c.label)}</option>`
+  ).join("");
+  $("csort").value = cstate.sort.key;
+  $("csortdir").textContent = cstate.sort.dir === 1 ? "↓" : "↑";
+}
+
+function sortedClubs() {
+  const b = pstate.board;
+  if (!b) return [];
+  const { key, dir } = cstate.sort;
+  return [...b.teams].sort((a, c) => {
+    const x = cSortValue(a, key), y = cSortValue(c, key);
+    if (x < y) return -dir;
+    if (x > y) return dir;
+    return a.name.localeCompare(c.name);
+  });
+}
+
+// A rank badge fills only at the two ends of the table. Colour every rank
+// and the column has ranked nothing; colour the top three and the bottom
+// three and the eye finds them without reading a single number.
+function rankBadge(rank, total) {
+  if (!rank) return "";
+  const cls = rank <= 3 ? " good" : rank > total - 3 ? " bad" : "";
+  return `<span class="r${cls}">${rank}</span>`;
+}
+
+function rate(value, rank, total, sub, tip) {
+  return `<span class="rate"${tip ? ` data-tip="${esc(tip)}"` : ""}>
+    <span class="v">${esc(value)}</span>${rankBadge(rank, total)}
+  </span>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}`;
+}
+
+const outCell = (t) => {
+  const pct = Math.round(t.injuryBurden * 100);
+  const tip = t.injuryList && t.injuryList.length
+    ? `Missing: ${t.injuryList.join(", ")}`
+    : "Nobody flagged who has played this season";
+  return `<span class="cout${pct >= 8 ? " hurt" : ""}" data-tip="${esc(tip)}">${pct}%</span>`;
+};
+
+function clubTable(rows) {
+  const events = runEvents();
+  const total = rows.length;
+  const head = `<tr>
+    <th scope="col" class="c-rank">#</th>
+    <th scope="col" class="t-who">Club</th>
+    <th scope="col" data-tip="Combined price of the fifteen most expensive players at the club">Squad</th>
+    <th scope="col" data-tip="Expected goals created per 90 minutes, and where that ranks">Attack</th>
+    <th scope="col" data-tip="Expected goals conceded per 90 minutes, and where that ranks. Lower is better, so 1st is the tightest defence">Defence</th>
+    <th scope="col" data-tip="Share of this season's minutes belonging to players who are currently unavailable">Out</th>
+    <th scope="col" data-tip="Mean difficulty of the run below, through the selected lens">Run</th>
+    ${events.map((e) => `<th scope="col" class="t-gw">GW${e}</th>`).join("")}
+  </tr>`;
+
+  const body = rows.map((t, i) => {
+    const byEvent = fixturesByEvent(t.id);
+    const run = clubRun(t);
+    return `<tr tabindex="0" data-club="${t.id}">
+      <td class="c-rank"><span class="crank">${i + 1}</span></td>
+      <td class="t-who"><span class="cwho"><span class="cn">${esc(t.name)}</span><span class="cs">${esc(t.short)} · ${t.played} played</span></span></td>
+      <td>${rate(`£${t.squadValue.toFixed(0)}m`, t.squadRank, total, "",
+        `${t.name} have the ${ordinal(t.squadRank)} most expensive squad of ${total}`)}</td>
+      <td>${rate(t.xgPer90.toFixed(2), t.attackRank, total, "",
+        `${t.xgPer90.toFixed(2)} xG per 90 · ${t.gfPer90.toFixed(2)} actually scored · ${ordinal(t.attackRank)} of ${total}`)}</td>
+      <td>${rate(t.xgcPer90.toFixed(2), t.defenceRank, total, "",
+        `${t.xgcPer90.toFixed(2)} xGC per 90 · ${t.gcPer90.toFixed(2)} actually conceded · ${ordinal(t.defenceRank)} tightest of ${total}`)}</td>
+      <td>${outCell(t)}</td>
+      <td>${run == null ? '<span class="faint">—</span>'
+        : `<span class="avgcell ${fdrClass(run)}">${run.toFixed(1)}</span>`}</td>
+      ${events.map((e) => `<td class="fx">${fxCell(byEvent.get(e), cstate.lens)}</td>`).join("")}
+    </tr>`;
+  }).join("");
+
+  return `<div class="table-scroll"><table class="ticker clubs"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+
+function clubList(rows) {
+  const events = runEvents();
+  const total = rows.length;
+  const body = rows.map((t, i) => {
+    const byEvent = fixturesByEvent(t.id);
+    const run = clubRun(t);
+    return `<div class="crow" tabindex="0" data-club="${t.id}">
+      <span class="crank">${i + 1}</span>
+      <span class="cwho"><span class="cn">${esc(t.name)}</span><span class="cs">${esc(t.short)} · £${t.squadValue.toFixed(0)}m</span></span>
+      ${run == null ? '<span class="faint">—</span>' : `<span class="avgcell ${fdrClass(run)}">${run.toFixed(1)}</span>`}
+      <span class="cnums">
+        <span><b>${t.xgPer90.toFixed(2)}</b> xG ${rankBadge(t.attackRank, total)}</span>
+        <span><b>${t.xgcPer90.toFixed(2)}</b> xGC ${rankBadge(t.defenceRank, total)}</span>
+        <span><b>${Math.round(t.injuryBurden * 100)}%</b> out</span>
+      </span>
+      <span class="prun">${events.map((e) => fxCell(byEvent.get(e), cstate.lens)).join("")}</span>
+    </div>`;
+  }).join("");
+  return `<div class="plist">${body}</div>`;
+}
+
+function renderClubs() {
+  const b = pstate.board;
+  if (!b) return;
+  const rows = sortedClubs();
+  if (!rows.length) {
+    $("cpanel").innerHTML = '<div class="msg empty">No club ratings in this board.</div>';
+    return;
+  }
+  const lens = cstate.lens === "def" ? "defenders" : "attackers";
+  $("cpanel").innerHTML =
+    `<h2 class="eyebrow">gw${b.event}–${b.event + b.horizon - 1} · ${rows.length} clubs</h2>`
+    + (isMobile() ? clubList(rows) : clubTable(rows))
+    + clubNotes(lens);
+  updateScrollHint();
+}
+
+function clubNotes(lens) {
+  return `<div class="notes">
+    <span><b>Attack</b> is expected goals created per 90 and <b>Defence</b> expected goals conceded per 90,
+      both shrunk toward what a squad of that price is expected to do — three or four matches is not enough
+      evidence to be believed on its own. The badge beside each is the club's position in the division.</span>
+    <span>The run is rated <b>for ${esc(lens)}</b>: an attacker's fixture is easy when the opponent's defence
+      leaks, a defender's when their attack is toothless, so the same match scores differently for each.</span>
+    <span>Select a club for its ratings in full, who is missing, and the reason behind every fixture score.</span>
+  </div>`;
+}
+
+// ── one club ──────────────────────────────────────────────────────────
+
+function openClub(id) {
+  const t = teamById(id);
+  if (!t) return;
+  cstate.dialog = id;
+  renderClubDialog(t);
+  openDialog($("club-dialog"));
+}
+
+function closeClub() {
+  cstate.dialog = null;
+  closeDialog($("club-dialog"));
+}
+
+function renderClubDialog(t) {
+  const total = (pstate.board && pstate.board.teams.length) || 20;
+  const run = clubRun(t);
+  const stats = [
+    [`£${t.squadValue.toFixed(0)}m`, "Squad", t.squadRank],
+    [t.xgPer90.toFixed(2), "xG / 90", t.attackRank],
+    [t.gfPer90.toFixed(2), "Scored / 90", 0],
+    [t.xgcPer90.toFixed(2), "xGC / 90", t.defenceRank],
+    [t.gcPer90.toFixed(2), "Conceded / 90", 0],
+    [t.played, "Played", 0],
+    [`${Math.round(t.injuryBurden * 100)}%`, "Minutes out", 0],
+    [run == null ? "—" : run.toFixed(1), "Mean run", 0],
+  ].map(([n, l, rank]) =>
+    `<div class="pstat"><div class="n">${esc(String(n))}${rank ? ` ${rankBadge(rank, total)}` : ""}</div><div class="l">${esc(l)}</div></div>`
+  ).join("");
+
+  const injured = (t.injuryList || []).length
+    ? `<div class="pnews"><div class="h">missing</div>
+         <div class="injlist">${t.injuryList.map((n) => `<span>${esc(n)}</span>`).join("")}</div></div>`
+    : "";
+
+  const lens = cstate.lens === "def" ? "defenders" : "attackers";
+  const fx = t.fixtures.map((f) => fixtureRow(f, cstate.lens, t.id)).join("");
+
+  $("cl-panel").innerHTML = `
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="dlg-head">
+      <div class="dlg-id">
+        <div class="dlg-titles">
+          <div class="dlg-entry" id="cl-entry">${esc(t.name)}</div>
+          <div class="dlg-manager">${esc(t.short)} · ${t.played} match${t.played === 1 ? "" : "es"} played</div>
+        </div>
+        <button type="button" class="dlg-close" data-close aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div class="dlg-body">
+      <h2 class="eyebrow" style="margin-top:0">ratings</h2>
+      <div class="pstats">${stats}</div>
+      ${injured}
+      <h2 class="eyebrow">next ${t.fixtures.length} fixture${t.fixtures.length === 1 ? "" : "s"}</h2>
+      <div class="lensnote">rated for <b>${esc(lens)}</b> — switch the lens under Clubs to see the other side</div>
+      <div class="fxlist">${fx || '<div class="msg empty">No fixtures scheduled in this run.</div>'}</div>
+    </div>`;
+}
+
+$("club-dialog").addEventListener("close", () => { cstate.dialog = null; });
+
+// ── club control wiring ───────────────────────────────────────────────
+
+$("ccontrols").addEventListener("submit", (e) => { e.preventDefault(); loadPlayers(); });
+
+$("csort").addEventListener("change", () => {
+  const c = C_SORTS.find((x) => x.key === $("csort").value);
+  cstate.sort = { key: c.key, dir: c.dir };
+  $("csortdir").textContent = c.dir === 1 ? "↓" : "↑";
+  if (pstate.board) renderClubs();
+});
+
+$("csortdir").addEventListener("click", () => {
+  cstate.sort = { key: cstate.sort.key, dir: -cstate.sort.dir };
+  $("csortdir").textContent = cstate.sort.dir === 1 ? "↓" : "↑";
+  if (pstate.board) renderClubs();
+});
+
+// The horizon is a property of the board, which both sections share, so
+// this control and the players one are two handles on the same value.
+$("chorizon").addEventListener("change", () => {
+  pstate.horizon = Number($("chorizon").value);
+  $("phorizon").value = $("chorizon").value;
+  loadPlayers();
+});
+
+wireTabs($("lens-tabs"), (tab) => {
+  cstate.lens = tab.id.replace("lens-", "");
+  if (pstate.board) renderClubs();
+});
+
+$("cpanel").addEventListener("click", (e) => {
+  const row = e.target.closest("[data-club]");
+  if (row) openClub(Number(row.dataset.club));
+});
+
+$("cpanel").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest && e.target.closest("[data-club]");
+  if (!row) return;
+  e.preventDefault();
+  openClub(Number(row.dataset.club));
+});
+
 // ── section switching ─────────────────────────────────────────────────
 
-const SECTION_TABS = { "sec-league": "league", "sec-players": "players" };
+// Each section owns a tab, a control form, a panel and a caption for the
+// filters sheet. Written as a table because the third section was the
+// point at which a pair of booleans stopped being readable - and because
+// a fourth should cost one row here, not a rewrite of the function below.
+const SECTIONS = {
+  league:  { tab: "sec-league",  controls: "controls",  panel: "panel",
+             sub: "League, gameweek, sort and view" },
+  players: { tab: "sec-players", controls: "pcontrols", panel: "ppanel",
+             sub: "Search, position, club and sort" },
+  clubs:   { tab: "sec-clubs",   controls: "ccontrols", panel: "cpanel",
+             sub: "Sort, lens and how far ahead" },
+};
+
+const SECTION_TABS = Object.fromEntries(
+  Object.entries(SECTIONS).map(([name, s]) => [s.tab, name])
+);
+
+// Both the players and the clubs sections read one board, so either one
+// arriving first serves the other.
+function boardCaption() {
+  const b = pstate.board;
+  return b ? `gw${b.event}–${b.event + b.horizon - 1} · difficulty out of 10` : "";
+}
 
 function setSection(section, push) {
   state.section = section;
-  const players = section === "players";
+  const spec = SECTIONS[section];
+  if (!spec) return;
 
   closeManager();
   closePlayer();
-  for (const [id, v] of Object.entries(SECTION_TABS)) {
-    const on = v === section;
-    $(id).setAttribute("aria-selected", String(on));
-    $(id).tabIndex = on ? 0 : -1;
+  closeClub();
+
+  for (const [name, s2] of Object.entries(SECTIONS)) {
+    const on = name === section;
+    $(s2.tab).setAttribute("aria-selected", String(on));
+    $(s2.tab).tabIndex = on ? 0 : -1;
+    $(s2.controls).hidden = !on;
+    $(s2.panel).hidden = !on;
   }
 
-  $("controls").hidden = players;
-  $("pcontrols").hidden = !players;
-  $("panel").hidden = players;
-  $("ppanel").hidden = !players;
-  $("honours").hidden = players;
-  $("filters-toggle").setAttribute("aria-controls", players ? "pcontrols" : "controls");
-  $("filters-sub").textContent = players
-    ? "Search, position, club and sort"
-    : "League, gameweek, sort and view";
+  $("honours").hidden = section !== "league";
+  $("filters-toggle").setAttribute("aria-controls", spec.controls);
+  $("filters-sub").textContent = spec.sub;
 
   if (push) {
     const url = new URL(location);
-    players ? url.searchParams.set("section", "players") : url.searchParams.delete("section");
+    section === "league"
+      ? url.searchParams.delete("section")
+      : url.searchParams.set("section", section);
     history.replaceState(null, "", url);
   }
 
-  if (players) {
-    // The board is the same answer for everybody and cached hard, so this
-    // is a fetch on first visit only.
-    if (!pstate.board) loadPlayers();
-    else {
-      renderPlayers();
-      setStatus("ok", "Players & Fixtures",
-        `gw${pstate.board.event}–${pstate.board.event + pstate.board.horizon - 1} · difficulty out of 10`,
-        `${pstate.board.players.length} players`);
+  if (section === "league") {
+    if (state.report) {
+      render();
+      const countdown = deadlineCountdown(state.report.event.deadline_time);
+      setStatus("ok", state.report.league.name,
+        (state.report.provisional ? `${state.report.event.name} · provisional` : state.report.event.name)
+          + (countdown ? ` · ${countdown}` : ""),
+        `${state.report.gameweek.length} managers`);
     }
+    return;
+  }
+
+  // The board is the same answer for everybody and cached hard, so this is
+  // a fetch on the first visit to either section and never again.
+  if (!pstate.board) return loadPlayers();
+
+  if (section === "players") {
+    renderPlayers();
+    setStatus("ok", "Players & Fixtures", boardCaption(), `${pstate.board.players.length} players`);
     moveIndicator($("pos-tabs"), true);
-  } else if (state.report) {
-    render();
-    const countdown = deadlineCountdown(state.report.event.deadline_time);
-    setStatus("ok", state.report.league.name,
-      (state.report.provisional ? `${state.report.event.name} · provisional` : state.report.event.name)
-        + (countdown ? ` · ${countdown}` : ""),
-      `${state.report.gameweek.length} managers`);
+  } else {
+    renderClubs();
+    setStatus("ok", "Club Ratings", boardCaption(), `${pstate.board.teams.length} clubs`);
+    moveIndicator($("lens-tabs"), true);
   }
 }
 
@@ -3760,8 +4214,8 @@ function placeControls() {
   if ($("controls").parentElement === home) return;
   home.appendChild($("controls"));
   home.appendChild($("pcontrols"));
-  moveIndicator($("view-tabs"), true);
-  moveIndicator($("pos-tabs"), true);
+  home.appendChild($("ccontrols"));
+  for (const id of ["view-tabs", "pos-tabs", "lens-tabs"]) moveIndicator($(id), true);
 }
 
 function setFiltersOpen(open) {
@@ -3787,6 +4241,7 @@ mqMobile.addEventListener("change", () => {
   // Crossing the breakpoint swaps table for ladder, and the two are built
   // rather than restyled - so the panel has to be rebuilt, not just reflowed.
   if (state.section === "players") renderPlayers();
+  else if (state.section === "clubs") renderClubs();
   else if (state.report) render();
 });
 
@@ -3861,18 +4316,15 @@ wireTabs($("view-tabs"), (tab) => setView(VIEW_TABS[tab.id]));
 // The bar is measured, so anything that can change the tabs' widths or
 // positions has to hand it back: a reflow, and the webfont replacing the
 // fallback it was first measured against.
-addEventListener("resize", () => {
-  moveIndicator($("view-tabs"), true);
-  moveIndicator($("pos-tabs"), true);
-});
-if (document.fonts) document.fonts.ready.then(() => {
-  moveIndicator($("view-tabs"), true);
-  moveIndicator($("pos-tabs"), true);
-});
+const TAB_BARS = ["view-tabs", "pos-tabs", "lens-tabs"];
+const remeasureTabs = () => { for (const id of TAB_BARS) moveIndicator($(id), true); };
+addEventListener("resize", remeasureTabs);
+if (document.fonts) document.fonts.ready.then(remeasureTabs);
 
 (function init() {
   fillSortOptions();
   fillPlayerSorts();
+  fillClubSorts();
   placeControls();
   moveIndicator($("view-tabs"), true);
   const params = new URLSearchParams(location.search);
@@ -3889,7 +4341,8 @@ if (document.fonts) document.fonts.ready.then(() => {
   if (league) load(false);
   // The league still loads underneath, so switching back to it is instant
   // and the deep link costs nothing extra when it is not used.
-  if (params.get("section") === "players") setSection("players", false);
+  const deep = params.get("section");
+  if (deep && deep !== "league" && SECTIONS[deep]) setSection(deep, false);
 })();
 </script>
 </body>

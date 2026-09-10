@@ -282,6 +282,28 @@ The phone gets the same rows as cards with the run as its own scrolling strip.
 The fixed columns are exactly what a 390px screen cannot hold, and what is
 gained is that one player's run is fully legible without pinching.
 
+## Clubs
+
+The third section, and no extra request: it is the same board the players
+section fetches, read one level up. Every rating the difficulty model uses is
+already on the wire, so this is the view that shows them as themselves rather
+than as a term inside somebody's fixture — squad value, expected goals created
+and conceded per 90, how much of the squad is unavailable, and the club's own
+fixture run.
+
+Twenty rows instead of four hundred changes what the table can afford: every
+rating gets its own column *and* its league position beside it. A rate alone
+asks the reader to hold nineteen other clubs in their head; "1.80 · 15th" does
+not. The rank badge fills only at the two ends of each table — colour all twenty
+and the column has ranked nothing.
+
+**Rate fixtures for** picks the lens. A club does not have one difficulty: its
+forwards and its defenders face different afternoons, so the section takes a
+side rather than averaging two numbers that are about different things.
+Selecting a club opens its ratings in full, who is missing, and the same
+per-fixture breakdown the player dialog uses — the card was taking a whole
+player when all it ever needed was the lens and the club.
+
 ## Layout
 
     fpl/client.go     HTTP client: browser UA, status checks, retry/backoff on 429+5xx
@@ -291,5 +313,5 @@ gained is that one player's run is fully legible without pinching.
     fpl/players.go    the fixture-difficulty model and the player board
     fpl/players_test.go  the model's terms, each pinned by sign rather than value
     server.go         HTTP API + embedded web UI, 60s report cache, 15min player board
-    web/index.html    the frontend: one file, no build step, no dependencies
+    web/index.html    the frontend: three sections, one file, no build step, no dependencies
     main.go           flags and table rendering
