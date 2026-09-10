@@ -169,7 +169,7 @@ vector because the dialog shows the breakdown: an 8.4 has to be readable as
 | Term | Range | What it reads |
 |---|---|---|
 | Opponent squad | ±1.6 | Combined price of the club's 15 most expensive players, placed on a 0–1 scale across the league |
-| Matchup | ±1.5 | Opponent's chances given (xGC) and goals conceded for an attacker; their xG and goals scored for a defender |
+| Matchup | ±1.5 | Opponent's chances given (xGC) and goals conceded for an attacker; their xG and goals scored for a defender. **xGC leads it 4:1** |
 | Venue | ±0.7 | Home or away, flat — roughly the third of a goal home advantage is worth |
 | Fatigue | 0 to +0.9 | A Tuesday–Thursday kickoff, plus a turnaround of four days or less; they stack |
 | Injuries | ±0.8 | Opponent's absences minus your own, so two equally depleted squads cancel |
@@ -182,9 +182,24 @@ leaks; a defender's is easy when their attack is toothless. Scoring both off
 front of him, so each fixture carries two scores and a player reads the one for
 their own job.
 
-**Rates are shrunk toward the league mean** as though every club had already
-played six average matches. Three gameweeks in, the unshrunk numbers say
-Sunderland have the best defence in England.
+**Expected goals lead the matchup 4:1 over actual ones.** Goals conceded is what
+has happened; xGC is what the defence keeps allowing, and over three or four
+matches the gap between them is mostly the keeper's afternoon. Hull are the case
+that sets the weighting: 1.80 xGC per 90 behind 1.32 goals conceded. At an even
+split that overperformance read as a wall and made the division's cheapest squad
+a *harder* attacking fixture than Brighton. Actual goals stay in at a fifth,
+because a defence that keeps its goals down all season is eventually telling you
+something.
+
+**Rates are shrunk toward a squad-informed prior**, as though every club had
+already played six matches at the level its squad cost implies. The prior is
+deliberately *not* the league mean: shrinking a promoted side toward average
+flatters it, and Hull's three tidy matches left them rated a top-half defence on
+one good month. Each club is pulled instead toward what a squad of its price is
+expected to do — the one thing about a club that is known before a ball is
+kicked. Evidence still wins as it accumulates; it just has to earn it. Without
+any shrinkage at all, three gameweeks in, the numbers say Sunderland have the
+best defence in England.
 
 **An absence only counts while the player was in the side.** Weight is the share
 of the club's minutes so far that belongs to whoever is now unavailable,
@@ -196,6 +211,21 @@ the same absence twice.
 The defensive record is read off each club's first-choice keeper. Every outfield
 player's per-90 concession numbers are diluted by the minutes they did not play;
 the keeper who played most of them has, by definition, the club's own rate.
+
+### Saying why, in words
+
+Selecting a player opens their season line and a card per fixture. Each card
+carries the five terms as bars either side of a shared centre, and the direction
+is stated in plain language — "much easier", "harder", "no effect" — rather than
+as the signed decimals the first version printed. `−1.36` is the model's own
+unit and depends on a sign convention that no part of the page ever explained.
+
+Each term that rests on a number shows it underneath, so a claim can be checked
+rather than believed: the matchup line leads with xGC per 90 and names the
+club's position in the division, and the two ends of that table get their names
+("the leakiest defence in the league") instead of an ordinal nobody says out
+loud. Squad strength is justified by league position rather than by a price tag,
+which is the ranking a reader would have had to do in their head anyway.
 
 `teams[].strength_attack_*` and `strength_defence_*` are not usable — the API
 returns 0 for all twenty (see the API notes) — which is why squad rating is

@@ -249,7 +249,8 @@ func TestRemovedPlayersAreDropped(t *testing.T) {
 // with ten identical ones.
 func TestShrinkagePullsThinEvidenceToTheMean(t *testing.T) {
 	raw := map[int]float64{1: 3.0, 2: 3.0}
-	got := shrinkAll(raw, 1.0, map[int]int{1: 1, 2: 10})
+	prior := map[int]float64{1: 1.0, 2: 1.0}
+	got := shrinkAll(raw, prior, map[int]int{1: 1, 2: 10})
 	if !(got[1] < got[2]) {
 		t.Errorf("one match shrank to %.2f and ten to %.2f, want the thinner evidence nearer the mean",
 			got[1], got[2])
@@ -277,5 +278,62 @@ func TestRestDaysSurviveUnorderedFixtures(t *testing.T) {
 	if rich.Fixtures[0].Event != 2 || rich.Fixtures[1].Event != 3 {
 		t.Errorf("run came back as GW%d,GW%d - want it sorted by kickoff",
 			rich.Fixtures[0].Event, rich.Fixtures[1].Event)
+	}
+}
+
+// A cheap squad is expected to concede more and create less, so its prior
+// sits on the wrong side of the league mean - which is what stops three
+// good matches reading as a settled top-half defence.
+func TestPriorIsTiltedBySquadRating(t *testing.T) {
+	ratings := map[int]float64{1: 1.0, 2: 0.0} // richest, cheapest
+	conceding := tiltedPrior(1.5, 0.2, ratings, true)
+	if !(conceding[1] < 1.5 && conceding[2] > 1.5) {
+		t.Errorf("conceding priors are rich %.2f, cheap %.2f around a 1.50 mean - want the cheap squad above it",
+			conceding[1], conceding[2])
+	}
+	creating := tiltedPrior(1.5, 0.2, ratings, false)
+	if !(creating[1] > 1.5 && creating[2] < 1.5) {
+		t.Errorf("creating priors are rich %.2f, cheap %.2f around a 1.50 mean - want the rich squad above it",
+			creating[1], creating[2])
+	}
+	// With no spread in the division there is nothing to tilt along.
+	flat := tiltedPrior(1.5, 0, ratings, true)
+	if flat[1] != 1.5 || flat[2] != 1.5 {
+		t.Errorf("a division with no spread produced priors %.2f/%.2f, want the mean", flat[1], flat[2])
+	}
+}
+
+// The same three matches must say less about a cheap squad than a dear
+// one, because the cheap squad is being argued against a lower prior.
+func TestThinEvidenceCannotFlatterACheapSquad(t *testing.T) {
+	boot := testBoot()
+	b := buildBoard(boot, testFixtures(), 10)
+	poor := find(t, b, "POO")
+	// Poor conceded three in their one match and are the cheaper squad, so
+	// nothing in the model should have them rated a good defence.
+	rich := find(t, b, "RCH")
+	if poor.XGCPer90 <= rich.XGCPer90 {
+		t.Errorf("cheap squad shrank to %.2f xGC and the dear one to %.2f - want the cheap squad conceding more",
+			poor.XGCPer90, rich.XGCPer90)
+	}
+	if poor.DefenceRank <= rich.DefenceRank {
+		t.Errorf("defence ranks are cheap %d, dear %d - want the dear squad ranked better",
+			poor.DefenceRank, rich.DefenceRank)
+	}
+}
+
+// Ranks are 1-based, cover every club, and put the best of each thing
+// first.
+func TestRanksCoverTheDivision(t *testing.T) {
+	b := buildBoard(testBoot(), testFixtures(), 10)
+	rich, poor := find(t, b, "RCH"), find(t, b, "POO")
+	if rich.SquadRank != 1 || poor.SquadRank != 2 {
+		t.Errorf("squad ranks are %d/%d, want the dearer squad first", rich.SquadRank, poor.SquadRank)
+	}
+	if rich.AttackRank != 1 {
+		t.Errorf("the club with all the xG ranks %d for attack, want 1st", rich.AttackRank)
+	}
+	if rich.DefenceRank != 1 {
+		t.Errorf("the club conceding least ranks %d for defence, want 1st", rich.DefenceRank)
 	}
 }

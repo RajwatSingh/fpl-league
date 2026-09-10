@@ -961,40 +961,59 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
   text-transform: uppercase; color: var(--orange); margin-bottom: 0.2rem;
 }
 
-.fxlist { display: grid; gap: 0.3rem; }
+.fxlist { display: grid; gap: 0.5rem; }
 .fxrow {
-  display: grid; grid-template-columns: 2.6rem 1fr auto;
-  gap: 0.7rem; align-items: center;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid var(--n1); border-radius: var(--radius);
+  display: grid; gap: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--n2); border-radius: var(--radius);
   background: var(--n1);
 }
-.fxrow .gw {
-  font-family: var(--mono); font-size: 0.6875rem; color: var(--n6);
-}
-.fxrow .opp { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
-.fxrow .opp .t { color: var(--n8); font-size: 0.875rem; }
-.fxrow .opp .k {
-  font-family: var(--mono); font-size: 0.625rem; color: var(--n6);
-  display: flex; gap: 0.45rem; flex-wrap: wrap;
-}
-.fxrow .opp .k .warn { color: var(--purple); }
 
-/* The breakdown. Each term is a bar either side of a shared centre line,
-   so the sign is read from which way it points and the weight from how
-   far - the one arrangement where five small numbers can be compared
-   without reading five small numbers. */
-.terms { display: grid; gap: 2px; margin-top: 0.45rem; grid-column: 2 / -1; }
-.term {
-  display: grid; grid-template-columns: 5.2rem 1fr 2.6rem;
-  gap: 0.5rem; align-items: center;
+/* The card's top line answers the question on its own - who, when, and how
+   hard. Everything under it is why. */
+.fxhead { display: flex; align-items: center; gap: 0.7rem; }
+.fxhead .gw {
+  flex: none; font-family: var(--mono); font-size: 0.625rem; font-weight: 700;
+  color: var(--n6); border: 1px solid var(--n4); border-radius: 2px;
+  padding: 0.15rem 0.35rem;
+}
+.fxhead .opp { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.fxhead .opp .t { color: var(--n8); font-size: 0.9375rem; }
+.fxhead .opp .k {
   font-family: var(--mono); font-size: 0.625rem; color: var(--n6);
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+.fxhead .opp .k .warn { color: var(--purple); }
+/* The score with the word for it underneath. The word is what makes the
+   number legible without a legend: a 2.2 says nothing to someone who has
+   not been told which end of the scale is which. */
+.fxscore { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+.fxscore .w {
+  font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--n6);
+}
+
+/* ── The breakdown ─────────────────────────────────────────────────────
+   This used to print five signed decimals - "−1.36", "+0.06". That is the
+   model's own unit, and it means nothing to a reader who has not been told
+   the sign convention, which no part of the page ever told them.
+
+   The bar and the plain-language effect now say the same thing twice and
+   neither needs explaining: the bar's direction and length carry the
+   weight, the words carry the meaning. The supporting figure sits under
+   the term it came from, so "much easier" can be checked rather than
+   believed.                                                              */
+.terms { display: grid; gap: 0.55rem; }
+.term {
+  display: grid; grid-template-columns: 7.5rem 1fr 6rem;
+  gap: 0.1rem 0.7rem; align-items: center;
+  font-size: 0.75rem; color: var(--n7);
 }
 .term .bar {
-  position: relative; height: 6px; background: var(--n2); border-radius: 1px;
+  position: relative; height: 7px; background: var(--n2); border-radius: 1px;
 }
 .term .bar::before {
-  content: ""; position: absolute; left: 50%; top: -1px; bottom: -1px;
+  content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px;
   width: 1px; background: var(--n4);
 }
 .term .bar i {
@@ -1002,28 +1021,32 @@ tbody tr.row.leader .who .name { font-size: 0.9375rem; }
   background: var(--n5);
 }
 /* Harder points right and reads warm, easier points left and reads cool -
-   the same direction of travel as the ramp the cells use. */
+   the same direction of travel as the ramp the fixture cells use. */
 .term.hard .bar i { background: color-mix(in oklch, var(--rose) 65%, var(--n5)); }
 .term.easy .bar i { background: color-mix(in oklch, var(--green) 60%, var(--n5)); }
-.term .v { text-align: right; color: var(--n7); font-variant-numeric: tabular-nums; }
+.term .eff {
+  text-align: right; font-family: var(--mono); font-size: 0.625rem;
+  color: var(--n6); white-space: nowrap;
+}
+.term.hard .eff { color: color-mix(in oklch, var(--rose) 60%, var(--n7)); }
+.term.easy .eff { color: color-mix(in oklch, var(--green) 55%, var(--n7)); }
+.term .tsub {
+  grid-column: 1 / -1;
+  font-family: var(--mono); font-size: 0.625rem; color: var(--n5);
+  margin-bottom: 0.1rem;
+}
+.term .tsub b { color: var(--n7); font-weight: 500; }
 
 .fxsum {
-  display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap;
-  font-family: var(--mono); font-size: 0.75rem; color: var(--n6);
+  display: grid; gap: 0.3rem;
+  font-size: 0.8125rem; color: var(--n6);
   margin: 0.5rem 0 1rem;
 }
 .fxsum b { color: var(--n8); font-weight: 500; }
-
-.oppbox {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-  gap: 0.5rem 1rem; margin-top: 0.45rem; grid-column: 2 / -1;
-  font-family: var(--mono); font-size: 0.625rem; color: var(--n6);
-}
-.oppbox b { color: var(--n7); font-weight: 500; }
+.fxsum .axis { font-family: var(--mono); font-size: 0.6875rem; color: var(--n5); }
 
 @media (max-width: 640px) {
-  .fxrow { grid-template-columns: 2.4rem 1fr auto; }
-  .term { grid-template-columns: 4.6rem 1fr 2.4rem; }
+  .term { grid-template-columns: 6rem 1fr 5rem; font-size: 0.6875rem; }
   .sections button { font-size: 0.6875rem; padding: 0.65rem 0.5rem; }
 }
 
@@ -3109,29 +3132,60 @@ function playerNotes(capped) {
 
 // ── one player ────────────────────────────────────────────────────────
 
-const P_TERMS = [
-  { key: "squad", label: "Squad" },
-  { key: "matchup", label: "Matchup" },
-  { key: "venue", label: "Venue" },
-  { key: "fatigue", label: "Fatigue" },
-  { key: "injury", label: "Injuries" },
-];
-
 // The widest term the model can produce, so every bar on every fixture is
-// drawn to one scale - bars that renormalised per fixture would make a
-// 0.2 look like a 1.6 on a quiet week.
+// drawn to one scale - bars renormalised per fixture would make a 0.2 look
+// like a 1.6 on a quiet week.
 const TERM_MAX = 1.7;
 
-function termBar(label, v) {
+// What a term actually does to the fixture, in words. This replaced five
+// signed decimals: the sign convention was never explained anywhere on the
+// page, and "+0.06" is the model's unit rather than an answer to the
+// question the reader is asking.
+function effect(v) {
+  const a = Math.abs(v);
+  if (a < 0.08) return { word: "no effect", cls: "" };
+  const dir = v > 0 ? "harder" : "easier";
+  const cls = v > 0 ? "hard" : "easy";
+  return { word: (a >= 0.9 ? "much " : "") + dir, cls };
+}
+
+// How a fixture reads as a whole, on the same five bands as the ticker's
+// colour ramp - so the word and the cell agree.
+function scoreWord(score) {
+  if (score <= 3.4) return "kind";
+  if (score <= 4.6) return "soft";
+  if (score <= 5.6) return "even";
+  if (score <= 6.8) return "tough";
+  return "brutal";
+}
+
+const ordinal = (n) => {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
+// "1st most expensive of 20" is a sentence nobody says. The two ends of a
+// table have names, and using them is both shorter and the thing a reader
+// was going to translate the ordinal into anyway.
+function rankPhrase(rank, best, worst, middle, total, article) {
+  if (!rank) return "";
+  const the = article ? "the " : "";
+  if (rank === 1) return `${the}<b>${best}</b> in the league`;
+  if (rank === total) return `${the}<b>${worst}</b> in the league`;
+  return `${the}<b>${ordinal(rank)}</b> ${middle} of ${total}`;
+}
+
+const rankSuffix = (phrase) => (phrase ? ` · ${phrase}` : "");
+
+function term(label, v, sub) {
+  const e = effect(v);
   const pct = Math.min(Math.abs(v) / TERM_MAX, 1) * 50;
-  const cls = v > 0.005 ? "hard" : v < -0.005 ? "easy" : "";
-  const style = v >= 0
-    ? `left:50%;width:${pct}%`
-    : `right:50%;width:${pct}%`;
-  return `<span class="term ${cls}">
+  const style = v >= 0 ? `left:50%;width:${pct}%` : `right:50%;width:${pct}%`;
+  return `<span class="term ${e.cls}">
     <span>${esc(label)}</span>
     <span class="bar"><i style="${style}"></i></span>
-    <span class="v">${v > 0 ? "+" : ""}${v.toFixed(2)}</span>
+    <span class="eff">${esc(e.word)}</span>
+    ${sub ? `<span class="tsub">${sub}</span>` : ""}
   </span>`;
 }
 
@@ -3139,42 +3193,76 @@ function fixtureRow(f, p) {
   const score = lensScore(f, p.group);
   const matchup = p.group === "def" ? f.defMatchup : f.attMatchup;
   const opp = teamById(f.oppId);
+  const me = teamById(p.teamId);
+  const oppName = opp ? opp.name : f.opponent;
   const kick = new Date(f.kickoff).toLocaleDateString(undefined, {
     weekday: "short", day: "numeric", month: "short",
   });
 
   const meta = [
-    esc(kick),
+    `<span>${esc(kick)}</span>`,
     f.midweek ? '<span class="warn">midweek</span>' : "",
-    f.restDays ? `<span>${f.restDays}d rest</span>` : "",
-  ].filter(Boolean).map((x) => (x.startsWith("<") ? x : `<span>${x}</span>`)).join("");
+    f.restDays ? `<span>${f.restDays} days' rest</span>` : "",
+  ].filter(Boolean).join("");
 
-  // The opponent's own numbers, so the matchup term can be checked rather
-  // than believed. Which pair matters depends on the player's job, so only
-  // that pair is shown.
-  const oppNums = opp
-    ? (p.group === "def"
-        ? `<span>xG <b>${opp.xgPer90.toFixed(2)}</b>/90</span><span>scored <b>${opp.gfPer90.toFixed(2)}</b>/90</span>`
-        : `<span>xGC <b>${opp.xgcPer90.toFixed(2)}</b>/90</span><span>conceded <b>${opp.gcPer90.toFixed(2)}</b>/90</span>`)
-      + `<span>squad <b>£${opp.squadValue.toFixed(0)}m</b></span>`
-      + `<span>out <b>${Math.round(opp.injuryBurden * 100)}%</b></span>`
+  // Squad is justified by league position rather than by a price. "17th of
+  // 20" is a fact about the division; "£79m" is a number the reader would
+  // have to rank against nineteen others themselves.
+  const total = (pstate.board && pstate.board.teams.length) || 20;
+  const squadSub = opp && opp.squadRank
+    ? `${esc(oppName)} have ${rankPhrase(opp.squadRank,
+        "most expensive squad", "cheapest squad", "most expensive squad", total, true)}`
     : "";
 
+  // The matchup's evidence, led by expected goals. Chances given is the
+  // measure that survives a small sample; the goals beside it are three or
+  // four matches of finishing and goalkeeping, so they are shown second
+  // and smaller in the model's weighting.
+  let matchSub = "", matchLabel = "Their defence";
+  if (opp) {
+    if (p.group === "def") {
+      matchLabel = "Their attack";
+      matchSub = `<b>${opp.xgPer90.toFixed(2)} xG</b> per 90 · ${opp.gfPer90.toFixed(2)} scored`
+        + rankSuffix(rankPhrase(opp.attackRank,
+            "most dangerous attack", "least dangerous attack", "most dangerous", total, false));
+    } else {
+      matchSub = `<b>${opp.xgcPer90.toFixed(2)} xGC</b> per 90 · ${opp.gcPer90.toFixed(2)} conceded`
+        + rankSuffix(rankPhrase(opp.defenceRank,
+            "tightest defence", "leakiest defence", "tightest", total, false));
+    }
+  }
+
+  const restSub = f.midweek || (f.restDays && f.restDays <= 4)
+    ? [f.midweek ? "a midweek round" : "", f.restDays ? `${f.restDays} days since the last match` : ""]
+        .filter(Boolean).join(" · ")
+    : "";
+
+  // Netted, so the sub-line has to name which way it went rather than
+  // quote a percentage of minutes at somebody.
+  const injSub = Math.abs(f.injury) < 0.08 ? ""
+    : f.injury < 0
+      ? `${esc(oppName)} are the more depleted side`
+      : `${esc(me ? me.name : p.team)} are the more depleted side`;
+
   return `<div class="fxrow">
-    <span class="gw">GW${f.event}</span>
-    <span class="opp">
-      <span class="t">${f.home ? "vs" : "away at"} ${esc(opp ? opp.name : f.opponent)}</span>
-      <span class="k">${meta}</span>
-    </span>
-    <span class="avgcell ${fdrClass(score)}">${score.toFixed(1)}</span>
-    <span class="terms">
-      ${termBar("Squad", f.squad)}
-      ${termBar("Matchup", matchup)}
-      ${termBar("Venue", f.venue)}
-      ${termBar("Fatigue", f.fatigue)}
-      ${termBar("Injuries", f.injury)}
-    </span>
-    <span class="oppbox">${oppNums}</span>
+    <div class="fxhead">
+      <span class="gw">GW${f.event}</span>
+      <span class="opp">
+        <span class="t">${f.home ? "vs" : "away at"} ${esc(oppName)}</span>
+        <span class="k">${meta}</span>
+      </span>
+      <span class="fxscore">
+        <span class="avgcell ${fdrClass(score)}">${score.toFixed(1)}</span>
+        <span class="w">${esc(scoreWord(score))}</span>
+      </span>
+    </div>
+    <div class="terms">
+      ${term("Their squad", f.squad, squadSub)}
+      ${term(matchLabel, matchup, matchSub)}
+      ${term(f.home ? "Playing at home" : "Playing away", f.venue, "")}
+      ${term("Turnaround", f.fatigue, restSub)}
+      ${term("Injuries", f.injury, injSub)}
+    </div>
   </div>`;
 }
 
@@ -3198,7 +3286,8 @@ function renderPlayerDialog(p) {
     [`£${p.cost.toFixed(1)}`, "Price"], [`${p.selected.toFixed(1)}%`, "Owned"],
     [p.minutes, "Minutes"], [p.starts, "Starts"], [p.goals, "Goals"],
     [p.assists, "Assists"], [p.xg.toFixed(2), "xG"], [p.xa.toFixed(2), "xA"],
-    [p.cs, "Clean sheets"], [p.defCon, "Def. cont."], [p.bonus, "Bonus"],
+    [p.cs, "Clean sheets"], [p.defCon, "Def. cont."],
+    [p.defCon90.toFixed(1), "Def. cont./90"], [p.bonus, "Bonus"],
   ].map(([n, l]) => `<div class="pstat"><div class="n">${esc(String(n))}</div><div class="l">${esc(l)}</div></div>`).join("");
 
   const news = p.news
@@ -3227,8 +3316,8 @@ function renderPlayerDialog(p) {
       <div class="pstats">${stats}</div>
       <h2 class="eyebrow">next ${p.fixtures} fixture${p.fixtures === 1 ? "" : "s"}</h2>
       <div class="fxsum">
-        <span>mean <b>${p.fixScore ? p.fixScore.toFixed(1) : "—"}</b>/10</span>
-        <span>${esc(lens)}</span>
+        <span>Mean difficulty <b>${p.fixScore ? p.fixScore.toFixed(1) : "—"}</b> out of 10, ${esc(lens)}.</span>
+        <span class="axis">each bar runs ← easier · harder → from the middle</span>
       </div>
       <div class="fxlist">${fx || '<div class="msg empty">No fixtures scheduled in this run.</div>'}</div>
     </div>`;

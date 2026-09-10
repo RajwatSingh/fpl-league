@@ -59,6 +59,16 @@ const (
 	wInjury  = 3.0
 	fdInjCap = 0.8
 
+	// How much of the matchup term is expected goals rather than actual
+	// ones, at both ends of the pitch.
+	xgcWeight = 0.8
+
+	// How far a prior is tilted by squad rating, in standard deviations of
+	// the division's own spread. At 0.8 the cheapest squad in the league
+	// starts from roughly the sixteenth-best defence rather than the tenth,
+	// which is where a promoted side actually finishes.
+	priorTilt = 0.8
+
 	// Shrinkage prior, in matches. Rate stats are pulled toward the league
 	// mean as though every club had already played this many average
 	// matches, so a side that has faced two weak opponents does not read as
@@ -145,6 +155,14 @@ type TeamStrength struct {
 	InjuryBurden float64  `json:"injuryBurden"`
 	InjuryList   []string `json:"injuryList"`
 
+	// League positions, all 1-20 and all "1 is the best of it": the richest
+	// squad, the tightest defence, the most dangerous attack. A rate on its
+	// own asks the reader to hold nineteen other rates in their head;
+	// "20th of 20" does not.
+	SquadRank   int `json:"squadRank"`
+	DefenceRank int `json:"defenceRank"`
+	AttackRank  int `json:"attackRank"`
+
 	Fixtures []FixtureScore `json:"fixtures"`
 }
 
@@ -170,6 +188,7 @@ type PlayerRow struct {
 	XG       float64 `json:"xg"`
 	XA       float64 `json:"xa"`
 	DefCon   int     `json:"defCon"`
+	DefCon90 float64 `json:"defCon90"`
 	Bonus    int     `json:"bonus"`
 	Selected float64 `json:"selected"`
 	EPNext   float64 `json:"epNext"`
@@ -244,46 +263,70 @@ func buildBoard(boot *Bootstrap, fixtures []Fixture, horizon int) *PlayerBoard {
 	squadValues := squadValues(boot)
 	injuries := injuryBurden(boot)
 
-	// Shrink every rate toward the league mean before it is compared with
-	// anything. Three gameweeks in, the unshrunk numbers say Sunderland
-	// have the best defence in England.
+	// The squad rating is a 0-1 position within the league's own spread,
+	// not an absolute: what matters is that this opponent is the third
+	// richest squad in the division, not that they cost £95m. It is
+	// computed first because the shrinkage below is built on it.
+	ratings := map[int]float64{}
+	minV, maxV := span(squadValues)
+	for _, id := range order {
+		if maxV > minV {
+			ratings[id] = (squadValues[id] - minV) / (maxV - minV)
+		} else {
+			ratings[id] = 0.5
+		}
+	}
+
 	avg := ModelAverages{
 		XGCPer90: mean(rawXGC),
 		GCPer90:  mean(rawGC),
 		XGPer90:  mean(rawAtk),
 		GFPer90:  mean(rawGF),
 	}
-	xgc := shrinkAll(rawXGC, avg.XGCPer90, played)
-	gc := shrinkAll(rawGC, avg.GCPer90, played)
-	xg := shrinkAll(rawAtk, avg.XGPer90, played)
-	gf := shrinkAll(rawGF, avg.GFPer90, played)
 
-	// The squad rating is a 0-1 position within the league's own spread,
-	// not an absolute: what matters is that this opponent is the third
-	// richest squad in the division, not that they cost £95m.
-	minV, maxV := span(squadValues)
+	// Every rate is shrunk toward a prior, because three gameweeks of
+	// evidence is not enough to be believed on its own - unshrunk, the
+	// numbers say Sunderland have the best defence in England.
+	//
+	// The prior is NOT the league mean. Shrinking a promoted side toward
+	// average flatters it: Hull have conceded almost nothing in three
+	// matches behind an xGC that says the chances are being given up, and
+	// pulling that toward the middle of the division left them rated a
+	// top-half defence on the strength of one good month. So each club is
+	// pulled toward what a squad of its cost is expected to do, which is
+	// the one thing about a club that is known before a ball is kicked.
+	// Evidence still wins as it accumulates; it just has to earn it.
+	xgc := shrinkAll(rawXGC, tiltedPrior(avg.XGCPer90, stddev(rawXGC), ratings, true), played)
+	gc := shrinkAll(rawGC, tiltedPrior(avg.GCPer90, stddev(rawGC), ratings, true), played)
+	xg := shrinkAll(rawAtk, tiltedPrior(avg.XGPer90, stddev(rawAtk), ratings, false), played)
+	gf := shrinkAll(rawGF, tiltedPrior(avg.GFPer90, stddev(rawGF), ratings, false), played)
+
 	for _, id := range order {
 		t := teams[id]
 		t.Played = played[id]
 		t.XGCPer90, t.GCPer90 = round2(xgc[id]), round2(gc[id])
 		t.XGPer90, t.GFPer90 = round2(xg[id]), round2(gf[id])
 		t.SquadValue = round1(squadValues[id])
-		if maxV > minV {
-			t.SquadRating = round2((squadValues[id] - minV) / (maxV - minV))
-		}
+		t.SquadRating = round2(ratings[id])
 		t.InjuryBurden = round2(injuries[id].burden)
 		t.InjuryList = injuries[id].names
 	}
 
-	// Defensive solidity for the attacker's lens blends chances given with
-	// goals actually conceded. xG is the better predictor, but the goals
-	// are what the question asked about and what a manager can check
-	// against a league table, so both are in and xG leads.
+	// Chances given lead the blend heavily. Goals conceded is what has
+	// happened; expected goals conceded is what the defence keeps allowing,
+	// and over three or four matches the gap between them is mostly the
+	// keeper's afternoon. Hull are the case that forces the weighting:
+	// 1.56 xGC per 90 - a defence giving up chances at close to the league
+	// rate - behind 0.91 goals conceded, which is not a thing a promoted
+	// side sustains. At an even split that overperformance read as a wall
+	// and made Hull a *harder* attacking fixture than their squad deserves.
+	// Actual goals stay in at a fifth, because a defence that keeps its
+	// goals down for a whole season is eventually telling you something.
 	conceded := map[int]float64{}
 	created := map[int]float64{}
 	for _, id := range order {
-		conceded[id] = 0.65*xgc[id] + 0.35*gc[id]
-		created[id] = 0.65*xg[id] + 0.35*gf[id]
+		conceded[id] = xgcWeight*xgc[id] + (1-xgcWeight)*gc[id]
+		created[id] = xgcWeight*xg[id] + (1-xgcWeight)*gf[id]
 	}
 	concededSD := stddev(conceded)
 	createdSD := stddev(created)
@@ -380,6 +423,10 @@ func buildBoard(boot *Bootstrap, fixtures []Fixture, horizon int) *PlayerBoard {
 		}
 	}
 
+	rankInto(squadValues, true, func(id, r int) { teams[id].SquadRank = r })
+	rankInto(conceded, false, func(id, r int) { teams[id].DefenceRank = r })
+	rankInto(created, true, func(id, r int) { teams[id].AttackRank = r })
+
 	board := &PlayerBoard{Event: first, Horizon: horizon, Averages: avg}
 	for _, id := range order {
 		t := teams[id]
@@ -423,6 +470,7 @@ func playerRows(boot *Bootstrap, teams map[int]*TeamStrength) []PlayerRow {
 			XG:       atof(e.ExpectedGoals),
 			XA:       atof(e.ExpectedAssists),
 			DefCon:   e.DefensiveContribution,
+			DefCon90: e.DefensiveContributionPer90,
 			Bonus:    e.Bonus,
 			Selected: atof(e.SelectedByPercent),
 			EPNext:   atof(e.EPNext),
@@ -629,15 +677,59 @@ func isMidweek(t time.Time) bool {
 
 // ── small numeric helpers ─────────────────────────────────────────────
 
-// shrinkAll pulls each club's rate toward the league mean in proportion to
-// how little evidence there is for it.
-func shrinkAll(raw map[int]float64, leagueMean float64, played map[int]int) map[int]float64 {
+// shrinkAll pulls each club's rate toward its own prior in proportion to
+// how little evidence there is for it. A club missing from prior falls
+// back to no shrinkage at all rather than to zero, which would read as a
+// perfect defence.
+func shrinkAll(raw map[int]float64, prior map[int]float64, played map[int]int) map[int]float64 {
 	out := make(map[int]float64, len(raw))
 	for id, v := range raw {
+		p, ok := prior[id]
+		if !ok {
+			out[id] = v
+			continue
+		}
 		n := float64(played[id])
-		out[id] = (v*n + leagueMean*shrinkPrior) / (n + shrinkPrior)
+		out[id] = (v*n + p*shrinkPrior) / (n + shrinkPrior)
 	}
 	return out
+}
+
+// tiltedPrior is what a squad of this cost is expected to do, expressed as
+// the league mean shifted along the division's own spread. richIsLow marks
+// the rates a strong squad should post a *lower* number for - goals and
+// chances conceded - as against the ones it should post a higher one for.
+func tiltedPrior(leagueMean, sd float64, ratings map[int]float64, richIsLow bool) map[int]float64 {
+	out := make(map[int]float64, len(ratings))
+	for id, r := range ratings {
+		// +1 for the cheapest squad in the division, -1 for the dearest.
+		t := (0.5 - r) * 2
+		if !richIsLow {
+			t = -t
+		}
+		out[id] = leagueMean + priorTilt*sd*t
+	}
+	return out
+}
+
+// rankInto numbers the clubs 1-20 by a value, descending when high is
+// better (squad value, attacking threat) and ascending when low is
+// (goals conceded). Clubs missing from the map keep rank 0, which renders
+// as no rank rather than as "1st".
+func rankInto(m map[int]float64, highIsFirst bool, set func(id, rank int)) {
+	ids := make([]int, 0, len(m))
+	for id := range m {
+		ids = append(ids, id)
+	}
+	sort.SliceStable(ids, func(i, j int) bool {
+		if highIsFirst {
+			return m[ids[i]] > m[ids[j]]
+		}
+		return m[ids[i]] < m[ids[j]]
+	})
+	for i, id := range ids {
+		set(id, i+1)
+	}
 }
 
 func mean(m map[int]float64) float64 {

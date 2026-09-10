@@ -235,7 +235,14 @@ func (s *server) handlePlayers() http.HandlerFunc {
 		// Fixtures and prices move on the scale of hours, not the sixty
 		// seconds a live gameweek's scores do, so this gets a much longer
 		// shared cache than /api/report.
-		w.Header().Set("Cache-Control", "public, s-maxage=900, stale-while-revalidate=3600")
+		//
+		// max-age=0 is doing real work here: with only s-maxage set, the
+		// response is cacheable-but-unversioned to a browser, and Chrome
+		// will hold it under heuristic freshness. A visitor then keeps one
+		// board for the rest of the session and sees no new fields, no new
+		// prices and no new fixtures. The CDN still caches for 15 minutes;
+		// the browser revalidates and gets a 304 when nothing has changed.
+		w.Header().Set("Cache-Control", "public, max-age=0, s-maxage=900, stale-while-revalidate=3600")
 
 		key := strconv.Itoa(horizon)
 		if b, ok := s.boardCached(key); ok {

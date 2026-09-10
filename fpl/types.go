@@ -63,6 +63,9 @@ type Element struct {
 	CleanSheets           int `json:"clean_sheets"`
 	Bonus                 int `json:"bonus"`
 	DefensiveContribution int `json:"defensive_contribution"`
+	// Per 90, which is the form of it worth comparing between players who
+	// have played wildly different amounts.
+	DefensiveContributionPer90 float64 `json:"defensive_contribution_per_90"`
 
 	// The API sends every rate and expectation as a string, so these are
 	// parsed at the edge rather than fought with a custom unmarshaller.
