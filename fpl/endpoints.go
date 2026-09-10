@@ -86,3 +86,14 @@ func (c *Client) Fixtures(ctx context.Context, gw int) ([]Fixture, error) {
 	}
 	return f, nil
 }
+
+// AllFixtures returns every fixture in the season, played and unplayed. It
+// is one call for all 380, which is why the fixture model can afford to
+// look ten gameweeks ahead and one match back for every club at once.
+func (c *Client) AllFixtures(ctx context.Context) ([]Fixture, error) {
+	var f []Fixture
+	if err := c.Get(ctx, "fixtures/", &f); err != nil {
+		return nil, err
+	}
+	return f, nil
+}

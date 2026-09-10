@@ -127,6 +127,62 @@ Also in `bootstrap-static/`: `elements[]` (players — `id`, `web_name`, `elemen
 
 ---
 
+## Fixtures and team strength (verified 2026-09-10, GW3 current)
+
+`fixtures/` with **no** `?event` returns all 380 in one call — the cheap way to
+look several gameweeks ahead and one match back at the same time.
+
+An unplayed fixture carries `kickoff_time`, `team_h_difficulty` and
+`team_a_difficulty` (the game's own 1–5 FDR); `team_h_score`/`team_a_score` are
+`null` until it is played, so decode them as pointers or a 0–0 and an unplayed
+match read the same.
+
+### ⚠️ Most of `teams[]` is not populated
+
+This is the trap for anything that wants a team rating:
+
+- `strength` — **null** for all twenty
+- `strength_attack_home` / `_away`, `strength_defence_home` / `_away` — **0** for all twenty
+- `played`, `win`, `draw`, `loss`, `points`, `form` — **0 / null** for all twenty,
+  even three gameweeks in. The league table in `bootstrap-static/` is not filled in.
+
+Only `strength_overall_home` (2–4) and `strength_overall_away` (2–5) hold real
+values. If you need more than that coarse a rating you have to derive it:
+
+- **Squad rating** — sum `now_cost` of a club's 15 most expensive `elements[]`.
+  Spread this season is £76.0m (HUL) to £107.7m (MCI). Available in week one,
+  which points, form and the league table are not.
+- **Goals for / against** — count them off the finished fixtures' scores, not off
+  `elements[]`, so own goals land against the right club.
+- **Team xG** — sum `expected_goals` across the club's elements, divide by
+  matches played.
+
+### Reading a club's defensive record off its keeper
+
+A club's per-90 concession rate is exactly its first-choice keeper's, because he
+played the minutes. Take the `element_type: 1` player at the club with the most
+minutes, then read `goals_conceded_per_90` and `expected_goals_conceded_per_90`
+straight off him. (Verified: Raya, 270 minutes, `goals_conceded_per_90: 0.33` —
+Arsenal conceded 1 in 3.) Both arrive as **numbers**, unlike `expected_goals`
+and every other rate on `elements[]`, which are strings.
+
+Summing the same fields across a whole squad does not work: each outfield
+player's rate is diluted by the minutes he did not play.
+
+### Availability
+
+`elements[].status` is `a` available, `d` doubtful, `i` injured, `s` suspended,
+`u` unavailable. `chance_of_playing_next_round` is `null` unless the club has
+given a figure, so `0` and "no figure given" are different answers — use a
+pointer, not an int.
+
+`u` covers more than injury: players who left the league permanently keep their
+element with `status: "u"` and news like "Has joined Al Hilal permanently".
+`removed: true` marks the ones the game has withdrawn. If you are measuring how
+depleted a squad is, weight by minutes actually played — a departed player has
+none, and a long-term absentee's absence is already priced into the club's
+results.
+
 ## Practical notes for building this
 
 **Standings pagination.** 50 rows per page; loop `page_standings` while `standings.has_next` is true. Response also carries `new_entries` (managers who joined mid-season and aren't ranked yet) — handle it or they'll silently vanish from your table. Deep paging works fine (I pulled page 145,904 of the Overall league).

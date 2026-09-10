@@ -40,6 +40,43 @@ type Element struct {
 	ElementType int    `json:"element_type"`
 	Team        int    `json:"team"`
 	NowCost     int    `json:"now_cost"`
+
+	// Removed marks an element the game has withdrawn - a player who left
+	// the league mid-season. They keep their id so past picks still
+	// resolve, but they have no fixtures ahead of them.
+	Removed bool `json:"removed"`
+
+	// Status is availability: a, d (doubtful), i (injured), s (suspended),
+	// u (unavailable). ChanceOfPlayingNextRound is null unless the club has
+	// given a percentage, hence the pointer - 0 and "no figure given" are
+	// different answers and must not collapse into each other.
+	Status                   string `json:"status"`
+	News                     string `json:"news"`
+	ChanceOfPlayingNextRound *int   `json:"chance_of_playing_next_round"`
+
+	// Season totals.
+	TotalPoints           int `json:"total_points"`
+	Minutes               int `json:"minutes"`
+	Starts                int `json:"starts"`
+	GoalsScored           int `json:"goals_scored"`
+	Assists               int `json:"assists"`
+	CleanSheets           int `json:"clean_sheets"`
+	Bonus                 int `json:"bonus"`
+	DefensiveContribution int `json:"defensive_contribution"`
+
+	// The API sends every rate and expectation as a string, so these are
+	// parsed at the edge rather than fought with a custom unmarshaller.
+	Form              string `json:"form"`
+	PointsPerGame     string `json:"points_per_game"`
+	SelectedByPercent string `json:"selected_by_percent"`
+	EPNext            string `json:"ep_next"`
+	ExpectedGoals     string `json:"expected_goals"`
+	ExpectedAssists   string `json:"expected_assists"`
+	// Per-90 concession: the club's own defensive rate, when read off a
+	// keeper who played the full match. These two arrive as numbers, unlike
+	// every other rate on this struct.
+	GoalsConcededPer90         float64 `json:"goals_conceded_per_90"`
+	ExpectedGoalsConcededPer90 float64 `json:"expected_goals_conceded_per_90"`
 }
 
 type Team struct {
@@ -252,9 +289,21 @@ func (l *LiveResponse) PointsByElement() map[int]int {
 // ---- fixtures/?event={gw} ----
 
 type Fixture struct {
+	ID       int  `json:"id"`
 	Event    int  `json:"event"`
 	TeamH    int  `json:"team_h"`
 	TeamA    int  `json:"team_a"`
 	Started  bool `json:"started"`
 	Finished bool `json:"finished"`
+
+	// KickoffTime is what makes a midweek round and a short turnaround
+	// visible; it is null only for a fixture with no date yet.
+	KickoffTime time.Time `json:"kickoff_time"`
+	// Scores are null until the match is played, so they are pointers -
+	// a 0-0 and an unplayed match must not read the same.
+	TeamHScore *int `json:"team_h_score"`
+	TeamAScore *int `json:"team_a_score"`
+	// The game's own 1-5 difficulty, kept for comparison against ours.
+	TeamHDifficulty int `json:"team_h_difficulty"`
+	TeamADifficulty int `json:"team_a_difficulty"`
 }

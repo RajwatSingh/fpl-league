@@ -31,6 +31,19 @@ const cacheTTL = 60 * time.Second
 // eleven million managers, two upstream calls each, from this server's IP.
 const hardMaxManagers = 100
 
+// The player board is built from bootstrap-static and the fixture list,
+// neither of which changes more than a few times a day, so it holds for
+// far longer than a league report.
+const boardTTL = 15 * time.Minute
+
+// defaultHorizon is the "next 10 fixtures" the players section is built
+// around; maxHorizon stops a query string asking for the rest of the
+// season and getting a response nobody can read.
+const (
+	defaultHorizon = 10
+	maxHorizon     = 15
+)
+
 // allowedLeagues, when non-empty, is the only set of leagues this server will
 // fetch. Set ALLOWED_LEAGUES=580906,123456 to lock a public deployment down.
 func allowedLeagues() map[int]bool {
@@ -57,12 +70,19 @@ type teamCacheEntry struct {
 	stored time.Time
 }
 
+type boardCacheEntry struct {
+	board  *fpl.PlayerBoard
+	stored time.Time
+}
+
 type server struct {
-	client    *fpl.Client
-	mu        sync.Mutex
-	cache     map[string]cacheEntry
-	teamMu    sync.Mutex
-	teamCache map[string]teamCacheEntry
+	client     *fpl.Client
+	mu         sync.Mutex
+	cache      map[string]cacheEntry
+	teamMu     sync.Mutex
+	teamCache  map[string]teamCacheEntry
+	boardMu    sync.Mutex
+	boardCache map[string]boardCacheEntry
 }
 
 func serve(addr string, concurrency int) error {
@@ -71,12 +91,18 @@ func serve(addr string, concurrency int) error {
 		return err
 	}
 
-	s := &server{client: fpl.NewClient(), cache: map[string]cacheEntry{}, teamCache: map[string]teamCacheEntry{}}
+	s := &server{
+		client:     fpl.NewClient(),
+		cache:      map[string]cacheEntry{},
+		teamCache:  map[string]teamCacheEntry{},
+		boardCache: map[string]boardCacheEntry{},
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 	mux.HandleFunc("/api/report", s.handleReport(concurrency))
 	mux.HandleFunc("/api/team", s.handleTeam())
+	mux.HandleFunc("/api/players", s.handlePlayers())
 
 	log.Printf("fpl-league-rank listening on http://localhost%s", addr)
 	return http.ListenAndServe(addr, mux)
@@ -193,6 +219,64 @@ func (s *server) handleTeam() http.HandlerFunc {
 		s.storeTeam(key, det)
 		writeJSON(w, det)
 	}
+}
+
+// handlePlayers serves the player board: every club's next few gameweeks
+// rated for difficulty, plus a season line for every player. Unlike the
+// league endpoints this one takes no league id - it is the same answer for
+// everybody, which is why it can be cached far harder than a report.
+func (s *server) handlePlayers() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		horizon, err := intParam(r, "horizon", defaultHorizon)
+		if err != nil || horizon <= 0 || horizon > maxHorizon {
+			horizon = defaultHorizon
+		}
+
+		// Fixtures and prices move on the scale of hours, not the sixty
+		// seconds a live gameweek's scores do, so this gets a much longer
+		// shared cache than /api/report.
+		w.Header().Set("Cache-Control", "public, s-maxage=900, stale-while-revalidate=3600")
+
+		key := strconv.Itoa(horizon)
+		if b, ok := s.boardCached(key); ok {
+			writeJSON(w, b)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		defer cancel()
+
+		board, err := s.client.BuildPlayerBoard(ctx, horizon)
+		if err != nil {
+			status := http.StatusBadGateway
+			msg := err.Error()
+			if errors.Is(err, context.DeadlineExceeded) {
+				status = http.StatusGatewayTimeout
+				msg = "the FPL API took too long — retry"
+			}
+			writeErr(w, status, msg)
+			return
+		}
+
+		s.storeBoard(key, board)
+		writeJSON(w, board)
+	}
+}
+
+func (s *server) boardCached(key string) (*fpl.PlayerBoard, bool) {
+	s.boardMu.Lock()
+	defer s.boardMu.Unlock()
+	e, ok := s.boardCache[key]
+	if !ok || time.Since(e.stored) > boardTTL {
+		return nil, false
+	}
+	return e.board, true
+}
+
+func (s *server) storeBoard(key string, b *fpl.PlayerBoard) {
+	s.boardMu.Lock()
+	defer s.boardMu.Unlock()
+	s.boardCache[key] = boardCacheEntry{board: b, stored: time.Now()}
 }
 
 func (s *server) teamCached(key string) (*fpl.TeamDetail, bool) {

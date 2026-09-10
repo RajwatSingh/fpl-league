@@ -1,7 +1,8 @@
 # fpl-league-rank
 
 CLI for inspecting an FPL classic league: bench points, gameweek rank, chips played,
-and transfers with their point deductions.
+and transfers with their point deductions. The web UI adds a second section that
+rates every player's next ten fixtures for difficulty.
 
 API behaviour this is built on is documented in [FPL_API_NOTES.md](FPL_API_NOTES.md).
 
@@ -151,12 +152,82 @@ Mobile loses the table's sortable column headings, which is most of how the page
 gets used, so the ladder's two numbers carry theirs as tap targets. The rest of
 the sorts stay in the filters sheet.
 
+## Players & fixtures
+
+A second section of the web UI, switched from the nav under the masthead. It
+rates every club's next ten gameweeks for difficulty and lists every player's
+season alongside their own run. `/api/players?horizon=10`; three upstream calls
+regardless of how many players come back, because the whole model is derived
+from `bootstrap-static/` plus the full fixture list. Cached 15 minutes — fixtures
+and prices move on the scale of hours, not the 60 seconds a live gameweek does.
+
+**Difficulty runs 1 (easiest) to 10 (hardest)**, from a neutral 5.5 plus five
+signed terms. They are kept separate rather than collapsed into one weight
+vector because the dialog shows the breakdown: an 8.4 has to be readable as
+"away at a top squad", not taken on faith.
+
+| Term | Range | What it reads |
+|---|---|---|
+| Opponent squad | ±1.6 | Combined price of the club's 15 most expensive players, placed on a 0–1 scale across the league |
+| Matchup | ±1.5 | Opponent's chances given (xGC) and goals conceded for an attacker; their xG and goals scored for a defender |
+| Venue | ±0.7 | Home or away, flat — roughly the third of a goal home advantage is worth |
+| Fatigue | 0 to +0.9 | A Tuesday–Thursday kickoff, plus a turnaround of four days or less; they stack |
+| Injuries | ±0.8 | Opponent's absences minus your own, so two equally depleted squads cancel |
+
+Three things the model does deliberately:
+
+**It is position-aware.** A forward's fixture is easy when the opponent's defence
+leaks; a defender's is easy when their attack is toothless. Scoring both off
+"how good is the opponent" would hand a keeper the same number as the striker in
+front of him, so each fixture carries two scores and a player reads the one for
+their own job.
+
+**Rates are shrunk toward the league mean** as though every club had already
+played six average matches. Three gameweeks in, the unshrunk numbers say
+Sunderland have the best defence in England.
+
+**An absence only counts while the player was in the side.** Weight is the share
+of the club's minutes so far that belongs to whoever is now unavailable,
+discounted by the reported chance of playing. Someone who left in the summer, or
+has been out since August, scores zero — the club's attacking and defensive
+rates above were earned without them, and counting them again would charge for
+the same absence twice.
+
+The defensive record is read off each club's first-choice keeper. Every outfield
+player's per-90 concession numbers are diluted by the minutes they did not play;
+the keeper who played most of them has, by definition, the club's own rate.
+
+`teams[].strength_attack_*` and `strength_defence_*` are not usable — the API
+returns 0 for all twenty (see the API notes) — which is why squad rating is
+built from price instead.
+
+### The ticker
+
+Ten gameweeks in fixed columns, because the value of a ticker is that a run
+reads down the page as well as across it: GW7 has to sit under GW7 for every
+player, or comparing two of them means reading two sentences instead of one
+shape. A blank keeps its column and shows `—`; a double stacks both matches
+rather than averaging them, since two fixtures is the fact that matters most
+about that week.
+
+The difficulty ramp is the one place in the UI that is a scale rather than a
+syntax theme, so unlike the accent set it is ordered by lightness as well as
+hue — read in greyscale, step 1 is still the palest and step 5 the deepest. It
+still never carries a value alone: every cell prints its own score, and a
+midweek round is marked with a notch rather than a sixth colour.
+
+The phone gets the same rows as cards with the run as its own scrolling strip.
+The fixed columns are exactly what a 390px screen cannot hold, and what is
+gained is that one player's run is fully legible without pinching.
+
 ## Layout
 
     fpl/client.go     HTTP client: browser UA, status checks, retry/backoff on 429+5xx
     fpl/types.go      API response types
     fpl/endpoints.go  one function per endpoint, standings paginated
     fpl/report.go     assembles the league report, bounded concurrency
-    server.go         HTTP API + embedded web UI, 60s report cache
+    fpl/players.go    the fixture-difficulty model and the player board
+    fpl/players_test.go  the model's terms, each pinned by sign rather than value
+    server.go         HTTP API + embedded web UI, 60s report cache, 15min player board
     web/index.html    the frontend: one file, no build step, no dependencies
     main.go           flags and table rendering
